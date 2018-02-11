@@ -19,5 +19,6 @@ setup(
     license             = 'License GPL-2',
     packages		= find_packages(),
     install_requires    = requirements,
-    url                 = 'https://github.com/decryptus/sonicprobe'
+    url                 = 'https://github.com/decryptus/sonicprobe',
+    python_requires     = '<3',
 )
