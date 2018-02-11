@@ -15,6 +15,7 @@ setup(
     version             = version,
     description         = 'sonicprobe',
     author              = 'Adrien Delle Cave',
+    author_email        = 'pypi@doowan.net',
     license             = 'License GPL-2',
     packages		= find_packages(),
     install_requires    = requirements,
