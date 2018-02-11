@@ -1,0 +1,7 @@
+LEPL
+pyOpenSSL
+psutil>=2.1
+pycurl
+pyyaml>=3.10
+rfc6266
+Unidecode
