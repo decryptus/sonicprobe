@@ -288,6 +288,16 @@ def file_w_tmp(lines, path = None):
 
     return path
 
+def touch(fname, times = None, exists = False):
+    if exists:
+        if os.path.exists(fname):
+            touch(fname, times, False)
+        return
+
+    with open(fname, 'a'):
+        os.utime(fname, times)
+    return
+
 def ps_info(pid):
     proc        = psutil.Process(pid)
     r           = proc.as_dict(attrs    = ['pid',
