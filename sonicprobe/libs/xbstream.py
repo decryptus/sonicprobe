@@ -3,6 +3,7 @@
 
 import copy
 import errno
+import gc
 import logging
 import struct
 import sys
@@ -78,6 +79,9 @@ class XBStreamRead(object):
             else:
                 self.EOF = True
 
+        if self.EOF:
+            gc.collect()
+
     def is_streaming(self):
         return not self.EOF
 
@@ -130,6 +134,9 @@ class XBStreamRead(object):
             self.xb_obj.chunk_tx = True
         else:
             self.tx_start()
+
+        if self.EOF:
+            gc.collect()
 
     def buffer_updated(self):
         ready_for_tx = False
