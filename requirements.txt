@@ -1,5 +1,6 @@
 LEPL
 pyOpenSSL
+python-magic
 psutil>=2.1
 pycurl
 pyyaml>=3.10
