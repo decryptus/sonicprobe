@@ -100,6 +100,7 @@ DEFAULT_OPTIONS = {'auth_basic':        None,
                    'testmethods':       False,
                    'max_body_size':     1 * 1024 * 1024,
                    'max_workers':       1,
+                   'max_requests':      0,
                    'listen_addr':       None,
                    'listen_port':       None}
 
