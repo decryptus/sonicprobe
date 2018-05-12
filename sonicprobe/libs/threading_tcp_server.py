@@ -1,10 +1,11 @@
 # -*- coding: utf8 -*-
 
 import logging
+import Queue
 import SocketServer
 import threading
+import time
 
-from Queue import Queue
 from SocketServer import socket
 
 LOG = logging.getLogger('sonicprobe.threading-tcp-server')
@@ -50,15 +51,16 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
-        self.worker_name  = name
+        self.worker_name   = name
 
-        self.max_workers  = int(config.get('max_workers', 0))
-        self.max_requests = int(config.get('max_requests', 0))
+        self.max_workers   = int(config.get('max_workers', 0))
+        self.max_requests  = int(config.get('max_requests', 0))
+        self.max_life_time = int(config.get('max_life_time', 0))
 
         if self.max_workers < 1:
             self.max_workers = 1
 
-        self.requests = Queue(self.max_workers)
+        self.requests      = Queue.Queue(self.max_workers)
 
         self.add_worker(self.max_workers)
 
@@ -81,10 +83,21 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
 
     def process_request_thread(self, mainthread):
         """obtain request from queue instead of directly from server socket"""
+        life_time   = time.time()
         nb_requests = 0
 
         while not mainthread.killed():
-            SocketServer.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
+            if self.max_life_time > 0:
+                if (time.time() - life_time) >= self.max_life_time:
+                    mainthread.add_worker(1)
+                    return
+                try:
+                    SocketServer.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
+                except Queue.Empty:
+                    continue
+            else:
+                SocketServer.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
+
             LOG.debug("nb_requests: %d, max_requests: %d", nb_requests, self.max_requests)
             nb_requests += 1
 

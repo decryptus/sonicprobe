@@ -101,6 +101,7 @@ DEFAULT_OPTIONS = {'auth_basic':        None,
                    'max_body_size':     1 * 1024 * 1024,
                    'max_workers':       1,
                    'max_requests':      0,
+                   'max_life_time':     0,
                    'listen_addr':       None,
                    'listen_port':       None}
 
@@ -514,9 +515,13 @@ class HttpReqHandler(BaseHTTPRequestHandler):
             disposition = res.get_header('Content-disposition')
 
         if not mimetype or mimetype == '__MAGIC__':
-            mime        = magic.open(magic.MAGIC_MIME_TYPE)
-            mime.load()
-            mimetype    = mime.file(filename)
+            try:
+                mime     = magic.open(magic.MAGIC_MIME_TYPE)
+                mime.load()
+                mimetype = mime.file(filename)
+            except AttributeError:
+                mimetype = magic.from_file(filename, mime = True)
+
             if mimetype == 'image/svg':
                 mimetype += '+xml'
             if mimetype:
@@ -1056,6 +1061,8 @@ def run(options):
 
     LOG.info("exiting")
 
+def get_default_options():
+    return DEFAULT_OPTIONS.copy()
 
 def init(options, use_sigterm_handler=True):
     """
