@@ -79,7 +79,9 @@ def normalize_string(value, case = None):
     elif case == 'lower':
         value = value.lower()
 
-    return unidecode.unidecode(clean_string(value))
+    return unidecode.unidecode(
+               clean_string(
+                   unicoder(value)))
 
 def split_to_dict(value, sep):
     if not isinstance(value, dict):
