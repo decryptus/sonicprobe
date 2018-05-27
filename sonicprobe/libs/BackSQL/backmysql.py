@@ -54,7 +54,11 @@ __typemap = {
     "quote_conv": None,
     "cursorclass": None,
     "charset": str,
+}
+
+__conn_typemap = {
     "time_zone": str,
+    "autocommit": (lambda x: bool(int(x))),
 }
 
 def __apply_types(params, typemap):
@@ -108,7 +112,11 @@ def connect_by_uri(uri):
         params['db'] = puri[PATH]
         if params['db'] and params['db'][0] == '/':
             params['db'] = params['db'][1:]
-    __apply_types(params, __typemap)
+
+    __merge_typemap = __typemap.copy()
+    __merge_typemap.update(__conn_typemap)
+
+    __apply_types(params, __merge_typemap)
 
     # The next affectation work around a bug in python-mysqldb which
     # happens when using an unicode charset: the conv parameter is
@@ -133,16 +141,22 @@ def connect_by_uri(uri):
     # the now orphan tuples and generated functions are too.
     params['conv'] = CST_CONVERSIONS.copy()
 
-    if 'timezone' in params:
-        timezone = params['timezone']
-        del params['timezone']
-    else:
-        timezone = None
+    cparams = {}
+
+    for key, value in __conn_typemap.iteritems():
+        if key in params:
+            cparams[key] = params[key]
+            del params[key]
 
     conn =  MySQLdb.connect(**params)
 
-    if timezone:
-        conn.query("SET time_zone = '%s'" % MySQLdb.escape_string(timezone))
+    for key, value in cparams.iteritems():
+        if value is None:
+            continue
+        elif isinstance(value, basestring) and value:
+            conn.query("SET @@session.%s = '%s'" % (key, MySQLdb.escape_string(value)))
+        elif isinstance(value, (bool, int, long)):
+            conn.query("SET @@session.%s = %d" % (key, value))
 
     return conn
 
