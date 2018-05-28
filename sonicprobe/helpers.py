@@ -271,8 +271,8 @@ def file_w_create_directories(filepath):
 
     return open(filepath, 'w')
 
-def file_w_tmp(lines, path = None):
-    with tempfile.NamedTemporaryFile('w+b', delete = False) as f:
+def file_w_tmp(lines, path = None, mode = 'w+'):
+    with tempfile.NamedTemporaryFile(mode, delete = False) as f:
         LOG.debug("writing temporary file: %r", f.name)
         f.writelines(lines)
         flush_sync_file_object(f)
