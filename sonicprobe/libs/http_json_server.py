@@ -103,7 +103,9 @@ DEFAULT_OPTIONS = {'auth_basic':        None,
                    'max_requests':      0,
                    'max_life_time':     0,
                    'listen_addr':       None,
-                   'listen_port':       None}
+                   'listen_port':       None,
+                   'server_version':    None,
+                   'sys_version':       None}
 
 
 class Command(object):
@@ -345,6 +347,9 @@ class HttpReqHandler(BaseHTTPRequestHandler):
 
     def query_params(self):
         return self._query_params
+
+    def version_string(self):
+        return BaseHTTPRequestHandler.version_string(self).strip()
 
     @staticmethod
     def parse_date(ims):
@@ -893,7 +898,6 @@ class HttpReqHandler(BaseHTTPRequestHandler):
         req.add_header('Access-Control-Allow-Headers', "Origin, X-Requested-With, Content-Type, Accept, Authorization")
         req.add_header('Access-Control-Max-Age', 1728000)
         self.end_response(req)
-        return
 
     def do_PATCH(self):
         "POST method"
@@ -1035,6 +1039,10 @@ def run(options):
     """
     # pylint: disable-msg=W0613
     global _HTTP_SERVER
+
+    for x in ('server_version', 'sys_version'):
+        if _OPTIONS.get(x) is not None:
+            setattr(HttpReqHandler, x, _OPTIONS[x])
 
     _HTTP_SERVER = threading_tcp_server.KillableThreadingHTTPServer(
                        _OPTIONS,

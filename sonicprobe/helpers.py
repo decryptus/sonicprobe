@@ -22,11 +22,18 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.utils import COMMASPACE, formatdate
+from sonicprobe.libs import urisup
 
 try:
     from StringIO import CStringIO as StringIO
 except ImportError:
     from StringIO import StringIO
+
+try:
+    from yaml import CSafeLoader as YamlLoader, CDumper as YamlDumper
+except ImportError:
+    from yaml import SafeLoader as YamlLoader, Dumper as YamlDumper
+
 
 BUFFER_SIZE = 1 << 16
 LOG         = logging.getLogger('sonicprobe.helpers')
@@ -158,6 +165,9 @@ def unidecoder(value):
     return value
 
 def make_dirs(path):
+    if not path:
+        return
+
     try:
         os.makedirs(path)
     except OSError, e:
@@ -492,6 +502,12 @@ def gzipfile(src, dst, level = 9, delete = False):
         if f_dst:
             f_dst.close()
 
+def load_yaml(stream, Loader = YamlLoader):
+    return yaml.load(stream, Loader = Loader)
+
+def dump_yaml(data, stream = None, Dumper = YamlDumper, **kwds):
+    return yaml.dump(data, stream, Dumper, **kwds)
+
 def load_yaml_file(uri):
     (c, b, r) = (None, None, None)
 
@@ -502,7 +518,7 @@ def load_yaml_file(uri):
         c.setopt(c.WRITEFUNCTION, b.write)
         c.perform()
         c.close()
-        r = yaml.load(b.getvalue())
+        r = load_yaml(b.getvalue())
     except pycurl.error, e:
         LOG.error(repr(e))
     finally:
@@ -510,5 +526,32 @@ def load_yaml_file(uri):
             b.close()
         if c:
             c.close()
+
+    return r
+
+def section_from_yaml_file(uri, key = '__section', config_dir = None):
+    section = None
+
+    u = list(urisup.uri_help_split(uri))
+    if not u[0] and u[2]:
+        u[0] = 'file'
+        if config_dir and not u[2].startswith('/'):
+            u[2] = "%s/%s" % (config_dir, u[2])
+
+    if u[3]:
+        q = []
+        for k, v in u[3]:
+            if k == key:
+                section = v
+            else:
+                q.append((k, v))
+        u[3] = q
+
+    r = load_yaml_file(urisup.uri_help_unsplit(u))
+
+    if section \
+       and isinstance(r, dict) \
+       and section in r:
+        return r[section]
 
     return r
