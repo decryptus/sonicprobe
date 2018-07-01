@@ -1090,12 +1090,12 @@ def init(options, use_sigterm_handler=True):
                 _OPTIONS[optname] = optvalue
 
     if _OPTIONS['testmethods']:
-        def fortytwo(args, urlargs, headers):
+        def fortytwo(request):
             "test GET method"
             return 42
-        def ping(args, urlargs, headers):
+        def ping(request):
             "test POST method"
-            return args
+            return request.payload_params()
         register(fortytwo, 'GET')
         register(ping, 'POST')
 
