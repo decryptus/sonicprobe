@@ -51,7 +51,7 @@ def boolize(value):
 
 def is_scalar(value):
     """ Returns True if is scalar or False otherwise """
-    return isinstance(value, (basestring, bool, int, float))
+    return isinstance(value, (basestring, bool, int, long, float))
 
 def is_print(value, space = True, tab = False, crlf = False):
     """ Returns True if is print or False otherwise """
