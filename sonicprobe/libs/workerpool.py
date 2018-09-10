@@ -75,7 +75,7 @@ class WorkerThread(threading.Thread):
 
             self.pool.count_lock.acquire()
             self.pool.working += 1
-            if (self.pool.working >= self.pool.workers) \
+            if (self.pool.tasks.qsize() > 0 or self.pool.working >= self.pool.workers) \
                and (self.pool.workers < self.pool.max_workers):
                 self.pool.count_lock.release()
                 self.pool.add()
@@ -97,6 +97,7 @@ class WorkerThread(threading.Thread):
             except Exception, e:
                 LOG.exception("Unexpected error: %r", e)
 
+            self.pool.tasks.task_done()
             self.pool.count_lock.acquire()
             self.pool.working -= 1
             self.pool.count_lock.release()
@@ -145,7 +146,7 @@ class WorkerPool(object):
             nb = self.workers
         self.count_lock.release()
         for x in xrange(nb):
-            self.tasks.put_nowait(WorkerExit())
+            self.tasks.put(WorkerExit())
 
     def set_max_workers(self, nb):
         """
@@ -176,8 +177,8 @@ class WorkerPool(object):
             self.count_lock.acquire()
             self.workers += 1
             xid           = self.workers
-            self.kill_event.clear()
             self.count_lock.release()
+            self.kill_event.clear()
             w = WorkerThread(xid, self)
             w.setName(self.get_name(xid, name))
             w.start()
@@ -190,9 +191,11 @@ class WorkerPool(object):
         """
         self.count_lock.acquire()
         if not self.workers:
+            self.count_lock.release()
             self.add(name = name)
-        self.count_lock.release()
-        self.tasks.put_nowait((target, callback, name, args, kargs))
+        else:
+            self.count_lock.release()
+        self.tasks.put((target, callback, name, args, kargs))
 
     def killall(self, wait = None):
         """
