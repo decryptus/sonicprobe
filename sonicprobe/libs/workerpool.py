@@ -75,7 +75,7 @@ class WorkerThread(threading.Thread):
 
             self.pool.count_lock.acquire()
             self.pool.working += 1
-            if (self.pool.tasks.qsize() > 0 or self.pool.working >= self.pool.workers) \
+            if (not self.pool.tasks.empty() or self.pool.working >= self.pool.workers) \
                and (self.pool.workers < self.pool.max_workers):
                 self.pool.count_lock.release()
                 self.pool.add()
@@ -106,7 +106,14 @@ class WorkerThread(threading.Thread):
         self.pool.workers -= 1
         if not self.pool.workers:
             self.pool.kill_event.set()
-        self.pool.count_lock.release()
+
+        if (not self.pool.tasks.empty() \
+            or (self.pool.workers > 0 and self.pool.working >= self.pool.workers)) \
+           and (self.pool.workers < self.pool.max_workers):
+            self.pool.count_lock.release()
+            self.pool.add()
+        else:
+            self.pool.count_lock.release()
 
 
 class WorkerPool(object):
