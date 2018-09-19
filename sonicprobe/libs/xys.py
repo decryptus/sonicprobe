@@ -205,6 +205,7 @@ def construct_yaml_scalar(loader, node):
 yaml.add_constructor('tag:yaml.org,2002:any', construct_yaml_any)
 yaml.add_constructor('tag:yaml.org,2002:scalar', construct_yaml_scalar)
 
+
 class ContructorValidatorNode(object):
     def __init__(self, tag, base_tag, validator, mode = 'generic', xmin = None, xmax = None):
         self.tag       = tag
@@ -239,7 +240,8 @@ class ContructorValidatorNode(object):
         return m.group(4)
 
     def __call__(self, loader, node):
-        node.value = self._parser(node.value)
+        if isinstance(node.value, basestring):
+            node.value = self._parser(node.value)
 
         return ValidatorNode(
                  _construct_node(loader, node, self.base_tag),
