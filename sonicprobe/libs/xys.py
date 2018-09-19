@@ -184,7 +184,7 @@ RE_MATCH_CSTR           = re.compile(r'^(.+?)' +
                                      r'(?:\|((?:(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])' +
                                          r'(?:,(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])*))?' +
                                      r'(\-)?$').match
-RE_MATCH_VALIDATOR_CSTR = re.compile(r'^(?:\((?:([0-9]+)|([0-9]*),([0-9]*))\)|([\*\+\?])\s+)?\s*(.+)$').match
+RE_MATCH_VALIDATOR_CSTR = re.compile(r'^(?:\((?:([0-9]+)|([0-9]*),([0-9]*))\)\s+)?\s*(.+)$').match
 
 _callbacks      = {}
 _lists          = {}
@@ -228,18 +228,15 @@ class ContructorValidatorNode(object):
                 self.min = 0
             if m.group(3):
                 self.max = int(m.group(3))
-        elif m.group(4) == '*':
-            self.min = 0
-        elif m.group(4) == '+':
-            self.min = 1
-        elif m.group(4) == '?':
-            self.min = 0
-            self.max = 1
 
-        if self.mode == 'mandatory' and self.min == 0:
-            self.min = 1
+        if self.mode == 'mandatory':
+            if self.min < 1:
+                self.min = 1
+        elif self.mode == 'optional':
+            if self.min > 0:
+                self.mode = 'mandatory'
 
-        return m.group(5)
+        return m.group(4)
 
     def __call__(self, loader, node):
         node.value = self._parser(node.value)
@@ -368,7 +365,9 @@ def add_parameterized_validator(param_validator, base_tag, tag_prefix=None):
         def temp_validator(node, schema):
             return param_validator(node, schema, *_split_params(tag_prefix, tag_suffix))
         temp_validator.__name__ = str(tag_prefix + tag_suffix)
-        return ContructorValidatorNode(base_tag, base_tag, temp_validator)(loader, node)
+        return ContructorValidatorNode(base_tag,
+                                       base_tag,
+                                       temp_validator)(loader, node)
 
     yaml.add_multi_constructor(tag_prefix, multi_constructor)
 
@@ -740,24 +739,38 @@ def validate(document, schema, log_qualifier = True):
                 return False
             del doc_copy[key]
 
+        for key, schema_val in generic:
+            nb = 0
+            rm = []
+
+            for doc_key, doc_val in doc_copy.iteritems():
+                if not validate(doc_key, key, False):
+                    continue
+
+                nb += 1
+
+                if validate(doc_val, schema_val):
+                    rm.append(doc_key)
+                else:
+                    return False
+
+            if key.min is not None and nb < key.min:
+                LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)", key.content, key.validator.__name__, key.min, nb)
+                return False
+            elif key.max is not None and nb > key.max:
+                LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)", key.content, key.validator.__name__, key.max, nb)
+                return False
+            else:
+                for x in rm:
+                    del doc_copy[x]
+                continue
+
         for key, doc_val in doc_copy.iteritems():
             schema_val = optional.get(key, Nothing)
             if schema_val is Nothing:
-                for gen_key, schema_val in generic:
-                    if validate(key, gen_key):
-                        break
-                else:
-                    LOG.error("forbidden key %s in document", key)
-                    return False
+                LOG.error("forbidden key %s in document", key)
+                return False
             elif optionalnull.has_key(key) and doc_val is None:
-                return True
-
-            if schema_val is Nothing:
-                return True
-
-            if helpers.is_scalar(schema_val):
-                if not validate(doc_val, schema_val):
-                    return False
                 return True
 
             if schema_val.modifier:
