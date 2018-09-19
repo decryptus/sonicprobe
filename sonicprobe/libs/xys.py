@@ -168,19 +168,23 @@ import logging
 
 LOG = logging.getLogger("sonicprobe.xys") # pylint: disable-msg=C0103
 
-
 # NOTE: content must stay first
-ValidatorNode = namedtuple('ValidatorNode', 'content validator')
+ValidatorNode = namedtuple('ValidatorNode', 'content validator mode min max')
+_VALIDATOR_MODES = {'+': {'name': 'mandatory', 'min': 1, 'max': None},
+                    '?': {'name': 'optional', 'min': 0, 'max': None},
+                    '':  {'name': 'optional', 'min': 0, 'max': None}}
+
 Optional = namedtuple('Optional', 'content min_len max_len modifier')
 OptionalNull = namedtuple('OptionalNull', 'content min_len max_len modifier')
 Mandatory = namedtuple('Mandatory', 'content min_len max_len modifier')
 
-RE_MATCH_TYPE   = type(re.compile('').match)
-RE_MATCH_LEN    = re.compile(r'^(.+?)' +
-                             r'(?:([\?\!\*])(?:\[(?:([0-9]+)|([0-9]*),([0-9]*))\]|([\*\+\?]))?)?' +
-                             r'(?:\|((?:(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])' +
-                                      r'(?:,(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])*))?' +
-                             r'(\-)?$').match
+RE_MATCH_TYPE           = type(re.compile('').match)
+RE_MATCH_CSTR           = re.compile(r'^(.+?)' +
+                                     r'(?:([\?\!\+\*])(?:\[(?:([0-9]+)|([0-9]*),([0-9]*))\]|([\*\+\?]))?)?' +
+                                     r'(?:\|((?:(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])' +
+                                         r'(?:,(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])*))?' +
+                                     r'(\-)?$').match
+RE_MATCH_VALIDATOR_CSTR = re.compile(r'^(?:\((?:([0-9]+)|([0-9]*),([0-9]*))\)|([\*\+\?])\s+)?\s*(.+)$').match
 
 _callbacks      = {}
 _lists          = {}
@@ -200,6 +204,52 @@ def construct_yaml_scalar(loader, node):
 
 yaml.add_constructor('tag:yaml.org,2002:any', construct_yaml_any)
 yaml.add_constructor('tag:yaml.org,2002:scalar', construct_yaml_scalar)
+
+class ContructorValidatorNode(object):
+    def __init__(self, tag, base_tag, validator, mode = 'generic', xmin = None, xmax = None):
+        self.tag       = tag
+        self.base_tag  = base_tag
+        self.validator = validator
+        self.mode      = mode
+        self.min       = xmin
+        self.max       = xmax
+
+    def _parser(self, value):
+        m = RE_MATCH_VALIDATOR_CSTR(value)
+        if not m:
+            return value
+
+        if m.group(1) is not None:
+            self.min = self.max = int(m.group(1))
+        elif m.group(2) is not None:
+            if m.group(2):
+                self.min = int(m.group(2))
+            else:
+                self.min = 0
+            if m.group(3):
+                self.max = int(m.group(3))
+        elif m.group(4) == '*':
+            self.min = 0
+        elif m.group(4) == '+':
+            self.min = 1
+        elif m.group(4) == '?':
+            self.min = 0
+            self.max = 1
+
+        if self.mode == 'mandatory' and self.min == 0:
+            self.min = 1
+
+        return m.group(5)
+
+    def __call__(self, loader, node):
+        node.value = self._parser(node.value)
+
+        return ValidatorNode(
+                 _construct_node(loader, node, self.base_tag),
+                 self.validator,
+                 self.mode,
+                 self.min,
+                 self.max)
 
 
 def _construct_node(loader, node, base_tag):
@@ -285,12 +335,17 @@ def add_validator(validator, base_tag, tag=None):
     """
     if not tag:
         tag = u'!~' + validator.__name__
-    yaml.add_constructor(
-        tag,
-        lambda loader, node:
-            ValidatorNode(
-                _construct_node(loader, node, base_tag),
-                validator))
+
+    for xid, opts in _VALIDATOR_MODES.iteritems():
+        mtag = "%s%s" % (tag, xid)
+
+        yaml.add_constructor(mtag,
+                             ContructorValidatorNode(mtag,
+                                                     base_tag,
+                                                     validator,
+                                                     opts['name'],
+                                                     opts['min'],
+                                                     opts['max']))
 
 
 def add_parameterized_validator(param_validator, base_tag, tag_prefix=None):
@@ -313,7 +368,8 @@ def add_parameterized_validator(param_validator, base_tag, tag_prefix=None):
         def temp_validator(node, schema):
             return param_validator(node, schema, *_split_params(tag_prefix, tag_suffix))
         temp_validator.__name__ = str(tag_prefix + tag_suffix)
-        return ValidatorNode(_construct_node(loader, node, base_tag), temp_validator)
+        return ContructorValidatorNode(base_tag, base_tag, temp_validator)(loader, node)
+
     yaml.add_multi_constructor(tag_prefix, multi_constructor)
 
 
@@ -502,7 +558,7 @@ def _qualify_map(key, content):
     min_len  = None
     max_len  = None
     modifier = []
-    m        = RE_MATCH_LEN(key)
+    m        = RE_MATCH_CSTR(key)
 
     if not m:
         raise KeyError("Unable to parse, invalid key: %r" % key)
@@ -534,6 +590,8 @@ def _qualify_map(key, content):
         return m.group(1), OptionalNull(content, min_len, max_len, modifier)
     elif m.group(2) == '?':
         return m.group(1), Optional(content, min_len, max_len, modifier)
+    elif m.group(2) == '+':
+        return m.group(1), Mandatory(content, min_len, max_len, modifier)
     else:
         return m.group(1), Mandatory(content, min_len, max_len, modifier)
 
@@ -588,7 +646,7 @@ Nothing = object()
 # TODO: display the document path to errors, and other error message enhancements
 # TODO: allow error messages from validators
 
-def validate(document, schema):
+def validate(document, schema, log_qualifier = True):
     """
     If the document is valid according to the schema, this function returns
     True.
@@ -599,7 +657,8 @@ def validate(document, schema):
         if not validate(document, schema.content):
             return False
         if not schema.validator(document, schema.content):
-            LOG.error("%r failed to validate with qualifier %s", document, schema.validator.__name__)
+            if log_qualifier:
+                LOG.error("%r failed to validate with qualifier %s", document, schema.validator.__name__)
             return False
         return True
     elif isinstance(schema, dict):
@@ -612,7 +671,10 @@ def validate(document, schema):
         mandatory = []
         for key, schema_val in schema.iteritems():
             if isinstance(key, ValidatorNode):
-                generic.append((key, schema_val))
+                if key.mode == 'mandatory':
+                    mandatory.append((key, schema_val))
+                else:
+                    generic.append((key, schema_val))
             elif isinstance(schema_val, Optional):
                 optional[key] = schema_val
             elif isinstance(schema_val, OptionalNull):
@@ -620,9 +682,38 @@ def validate(document, schema):
                 optionalnull[key] = True
             else:
                 mandatory.append((key, schema_val))
+
         doc_copy = document.copy()
 
         for key, schema_val in mandatory:
+            if isinstance(key, ValidatorNode):
+                nb = 0
+                rm = []
+                for doc_key, doc_val in doc_copy.iteritems():
+                    if not validate(doc_key, key, False):
+                        continue
+
+                    nb += 1
+
+                    if validate(doc_val, schema_val):
+                        rm.append(doc_key)
+                    else:
+                        return False
+
+                if nb == 0:
+                    LOG.error("missing document %r for qualifier: %r", key.content, key.validator.__name__)
+                    return False
+                elif key.min is not None and nb < key.min:
+                    LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)", key.content, key.validator.__name__, key.min, nb)
+                    return False
+                elif key.max is not None and nb > key.max:
+                    LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)", key.content, key.validator.__name__, key.max, nb)
+                    return False
+                else:
+                    for x in rm:
+                        del doc_copy[x]
+                    continue
+
             doc_val = doc_copy.get(key, Nothing)
             if doc_val is Nothing:
                 LOG.error("missing key %r in document", key)
@@ -631,7 +722,8 @@ def validate(document, schema):
             if helpers.is_scalar(schema_val):
                 if not validate(doc_val, schema_val):
                     return False
-                return True
+                del doc_copy[key]
+                continue
 
             if schema_val.modifier:
                 for modname in schema_val.modifier:
@@ -660,7 +752,10 @@ def validate(document, schema):
             elif optionalnull.has_key(key) and doc_val is None:
                 return True
 
-            if schema_val is Nothing or helpers.is_scalar(schema_val):
+            if schema_val is Nothing:
+                return True
+
+            if helpers.is_scalar(schema_val):
                 if not validate(doc_val, schema_val):
                     return False
                 return True
