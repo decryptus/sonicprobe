@@ -156,6 +156,7 @@ __license__ = """
 """
 
 
+from sonicprobe import helpers
 from sonicprobe.libs import UpCollections # pylint: disable-msg=W0611
 
 from collections import namedtuple
@@ -188,6 +189,7 @@ _regexs         = {}
 
 
 class Any(object): pass
+
 class Scalar(object): pass
 
 def construct_yaml_any(loader, node):
@@ -422,20 +424,26 @@ def uint(nstr, schema):
     return nstr > 0
 
 
-def callback(val, schema, name): # pylint: disable-msg=W0613
+def callback(val, schema, name = None): # pylint: disable-msg=W0613
     """
     !~~callback(function)
     """
+    if name is None:
+        name = schema
+
     if not _callbacks.has_key(name):
         return False
 
     return _callbacks[name](val)
 
 
-def isIn(val, schema, name): # pylint: disable-msg=W0613
+def isIn(val, schema, name = None): # pylint: disable-msg=W0613
     """
     !~~isIn(data)
     """
+    if name is None:
+        name = schema
+
     if not _lists.has_key(name):
         return False
 
@@ -445,10 +453,13 @@ def isIn(val, schema, name): # pylint: disable-msg=W0613
         return False
 
 
-def regex(val, schema, name): # pylint: disable-msg=W0613
+def regex(val, schema, name = None): # pylint: disable-msg=W0613
     """
-    !~~regex(regex)
+    !~~regex(regex) or !~~regex regex
     """
+    if name is None:
+        name = schema
+
     if not _regexs.has_key(name):
         return False
 
@@ -471,6 +482,9 @@ _add_validator_internal(prefixedDec, u'!!str')
 _add_validator_internal(isBool, u'!!scalar')
 _add_validator_internal(digit, u'!!scalar')
 _add_validator_internal(uint, u'!!scalar')
+_add_validator_internal(callback, u'!!str')
+_add_validator_internal(isIn, u'!!str')
+_add_validator_internal(regex, u'!!str')
 _add_parameterized_validator_internal(callback, u'!!any')
 _add_parameterized_validator_internal(isIn, u'!!scalar')
 _add_parameterized_validator_internal(regex, u'!!scalar')
@@ -607,11 +621,18 @@ def validate(document, schema):
             else:
                 mandatory.append((key, schema_val))
         doc_copy = document.copy()
+
         for key, schema_val in mandatory:
             doc_val = doc_copy.get(key, Nothing)
             if doc_val is Nothing:
                 LOG.error("missing key %r in document", key)
                 return False
+
+            if helpers.is_scalar(schema_val):
+                if not validate(doc_val, schema_val):
+                    return False
+                return True
+
             if schema_val.modifier:
                 for modname in schema_val.modifier:
                     if modname in _modifiers:
@@ -620,11 +641,13 @@ def validate(document, schema):
                     elif hasattr(doc_val, modname):
                         document[key] = getattr(document[key], modname)()
                         doc_val = getattr(doc_val, modname)()
+
             if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
                 return False
             if not validate(doc_val, schema_val.content):
                 return False
             del doc_copy[key]
+
         for key, doc_val in doc_copy.iteritems():
             schema_val = optional.get(key, Nothing)
             if schema_val is Nothing:
@@ -636,17 +659,23 @@ def validate(document, schema):
                     return False
             elif optionalnull.has_key(key) and doc_val is None:
                 return True
-            if schema_val is not Nothing:
-                if schema_val.modifier:
-                    for modname in schema_val.modifier:
-                        if modname in _modifiers:
-                            document[key] = _modifiers[modname](document[key])
-                            doc_val = _modifiers[modname](doc_val)
-                        elif hasattr(doc_val, modname):
-                            document[key] = getattr(document[key], modname)()
-                            doc_val = getattr(doc_val, modname)()
-                if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
+
+            if schema_val is Nothing or helpers.is_scalar(schema_val):
+                if not validate(doc_val, schema_val):
                     return False
+                return True
+
+            if schema_val.modifier:
+                for modname in schema_val.modifier:
+                    if modname in _modifiers:
+                        document[key] = _modifiers[modname](document[key])
+                        doc_val = _modifiers[modname](doc_val)
+                    elif hasattr(doc_val, modname):
+                        document[key] = getattr(document[key], modname)()
+                        doc_val = getattr(doc_val, modname)()
+
+            if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
+                return False
             if not validate(doc_val, schema_val.content):
                 return False
         return True
@@ -672,7 +701,7 @@ def validate(document, schema):
     elif isinstance(schema, Any):
         return True
     elif isinstance(schema, Scalar):
-        return isinstance(document, (basestring, bool, int, float, long))
+        return helpers.is_scalar(document)
     else: # scalar
         if isinstance(schema, str):
             schema = unicode(schema)
