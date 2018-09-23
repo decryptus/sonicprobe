@@ -1,4 +1,4 @@
-httpdis>=0.5.1
+httpdis>=0.5.2
 pyOpenSSL
 python-magic
 psutil>=2.1
