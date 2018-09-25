@@ -82,11 +82,13 @@ class WorkerThread(threading.Thread):
             else:
                 self.pool.count_lock.release()
 
-            func, cb, name, args, kargs = task
+            func, cb, name, complete, args, kargs = task
             self.setName(self.pool.get_name(self.xid, name))
 
             if __debug__:
                 self._note("%s.run(): starting function: %r", self, func)
+
+            ret = None
 
             try:
                 ret = func(*args, **kargs)
@@ -95,7 +97,12 @@ class WorkerThread(threading.Thread):
                         self._note("%s.run(): starting callback: %r", self, cb)
                     cb(ret)
             except Exception, e:
-                LOG.exception("Unexpected error: %r", e)
+                LOG.exception("unexpected error: %r", e)
+            finally:
+                if complete:
+                    if __debug__:
+                        self.__note("%s.run(): starting complete callback: %r", self, complete)
+                    complete(ret)
 
             self.pool.tasks.task_done()
             self.pool.count_lock.acquire()
@@ -190,11 +197,13 @@ class WorkerPool(object):
             w.setName(self.get_name(xid, name))
             w.start()
 
-    def run(self, target, callback = None, name = None, *args, **kargs):
+    def run(self, target, callback = None, name = None, complete = None, *args, **kargs):
         """
         Start task.
         @target: callable to run with *args and **kargs arguments.
         @callback: callable executed after target.
+        @name: thread name
+        @complete: complete executed after target in finally
         """
         self.count_lock.acquire()
         if not self.workers:
@@ -202,7 +211,7 @@ class WorkerPool(object):
             self.add(name = name)
         else:
             self.count_lock.release()
-        self.tasks.put((target, callback, name, args, kargs))
+        self.tasks.put((target, callback, name, complete, args, kargs))
 
     def killall(self, wait = None):
         """
