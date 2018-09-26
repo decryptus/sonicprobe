@@ -101,7 +101,7 @@ class WorkerThread(threading.Thread):
             finally:
                 if complete:
                     if __debug__:
-                        self.__note("%s.run(): starting complete callback: %r", self, complete)
+                        self._note("%s.run(): starting complete callback: %r", self, complete)
                     complete(ret)
 
             self.pool.tasks.task_done()
