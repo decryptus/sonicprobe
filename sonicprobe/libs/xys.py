@@ -773,7 +773,9 @@ def validate(document, schema, log_qualifier = True):
                 LOG.error("forbidden key %s in document", key)
                 return False
             elif optionalnull.has_key(key) and doc_val is None:
-                return True
+                continue
+            elif schema_val.min_len == 0 and doc_val is "":
+                continue
 
             if schema_val.modifier:
                 for modname in schema_val.modifier:
@@ -783,6 +785,10 @@ def validate(document, schema, log_qualifier = True):
                     elif hasattr(doc_val, modname):
                         document[key] = getattr(document[key], modname)()
                         doc_val = getattr(doc_val, modname)()
+                if optionalnull.has_key(key) and doc_val is None:
+                    continue
+                elif schema_val.min_len == 0 and doc_val is "":
+                    continue
 
             if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
                 return False
