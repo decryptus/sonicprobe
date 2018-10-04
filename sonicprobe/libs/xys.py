@@ -454,6 +454,23 @@ def isBool(nstr, schema):
     return nstr in ('0', '1', False, True)
 
 
+def isFloat(nstr, schema):
+    """
+    !~~isFloat
+    """
+    if isinstance(nstr, (float, int, long)):
+        return True
+    elif not isinstance(nstr, basestring):
+        return False
+
+    try:
+        float(nstr)
+    except ValueError:
+        return False
+
+    return True
+
+
 def digit(nstr, schema):
     """
     !~~digit
@@ -537,6 +554,7 @@ add_validator(fixed, u'!!int', '!~~fixedInt') # XXX: validation tag overloading?
 _add_validator_internal(startswith, u'!!str')
 _add_validator_internal(prefixedDec, u'!!str')
 _add_validator_internal(isBool, u'!!scalar')
+_add_validator_internal(isFloat, u'!!scalar')
 _add_validator_internal(digit, u'!!scalar')
 _add_validator_internal(uint, u'!!scalar')
 _add_validator_internal(callback, u'!!str')
@@ -831,7 +849,7 @@ def validate(document, schema, log_qualifier = True):
 
 __all__ = [
         'validate', 'load',
-        'seqlen', 'between', 'startswith', 'prefixedDec', 'isBool', 'digit', 'uint', 'callback', 'isIn', 'regex'
+        'seqlen', 'between', 'startswith', 'prefixedDec', 'isBool', 'isFloat', 'digit', 'uint', 'callback', 'isIn', 'regex'
         'add_callback', 'add_list', 'add_modifier', 'add_regex', 'add_validator', 'add_parameterized_validator',
         'ValidatorNode', 'Optional', 'OptionalNull', 'Mandatory',
 ]
