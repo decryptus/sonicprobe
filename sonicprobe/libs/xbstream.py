@@ -30,7 +30,7 @@ class XBStreamDefaultCallbacks(object):
 
 
 class XBStreamObject(object):
-    def __init__(self, init = True):
+    def __init__(self):
         self.buffer         = ""
         self.buffer_size    = 0
         self.filled_size    = 0
@@ -46,6 +46,10 @@ class XBStreamObject(object):
         self.chunk_size     = CHUNK_HEADER_CONSTANT_LEN
         self.chunk_no       = 0
         self.tx_started     = False
+
+    def clean(self):
+        self.buffer  = ""
+        self.payload = None
 
 
 class XBStreamRead(object):
