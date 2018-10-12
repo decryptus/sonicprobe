@@ -189,6 +189,9 @@ class WorkerPool(object):
         """
         for x in xrange(nb):
             self.count_lock.acquire()
+            if self.workers >= self.max_workers:
+                self.count_lock.release()
+                continue
             self.workers += 1
             xid           = self.workers
             self.count_lock.release()
