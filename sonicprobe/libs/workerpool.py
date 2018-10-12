@@ -144,7 +144,7 @@ class WorkerPool(object):
         self.max_workers    = max_workers
         self.life_time      = life_time
         self.name           = name
-        self.max_tasks      = int(max_tasks)
+        self.max_tasks      = max_tasks
         self.auto_gc        = auto_gc
         self.verbose        = verbose
 
