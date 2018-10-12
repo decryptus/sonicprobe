@@ -38,12 +38,14 @@ class WorkerExit(object):
 class WorkerThread(threading.Thread):
     def __init__(self, xid, pool):
         threading.Thread.__init__(self, verbose = pool.verbose)
-        self.setDaemon(True)
+        self.daemon     = True
         self.pool       = pool
         self.life_time  = None
+        self.nb_tasks   = None
         self.xid        = xid
 
     def start(self):
+        self.nb_tasks   = 0
         self.life_time  = time.time()
         return threading.Thread.start(self)
 
@@ -51,13 +53,23 @@ class WorkerThread(threading.Thread):
         if self.pool.life_time > 0 \
            and self.life_time > 0 \
            and (time.time() - self.life_time) >= self.pool.life_time:
+            LOG.debug("worker expired. (name: %r)", self.getName())
+            return True
+
+        return False
+
+    def max_tasks_reached(self):
+        if self.pool.max_tasks > 0 \
+           and self.nb_tasks > 0 \
+           and self.nb_tasks >= self.pool.max_tasks:
+            LOG.debug("worker max tasks reached. (name: %r)", self.getName())
             return True
 
         return False
 
     def run(self):
         while True:
-            if self.expired():
+            if self.expired() or self.max_tasks_reached():
                 if self.pool.auto_gc:
                     gc.collect()
                 break
@@ -91,6 +103,7 @@ class WorkerThread(threading.Thread):
             ret = None
 
             try:
+                self.nb_tasks += 1
                 ret = func(*args, **kargs)
                 if cb:
                     if __debug__:
@@ -124,13 +137,14 @@ class WorkerThread(threading.Thread):
 
 
 class WorkerPool(object):
-    def __init__(self, queue = None, max_workers = 10, life_time = None, name = None, auto_gc = True, verbose = None):
+    def __init__(self, queue = None, max_workers = 10, life_time = None, name = None, max_tasks = None, auto_gc = True, verbose = None):
         self.tasks          = queue or Queue.Queue()
         self.workers        = 0
         self.working        = 0
         self.max_workers    = max_workers
         self.life_time      = life_time
         self.name           = name
+        self.max_tasks      = int(max_tasks)
         self.auto_gc        = auto_gc
         self.verbose        = verbose
 

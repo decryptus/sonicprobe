@@ -78,7 +78,7 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
             t = threading.Thread(target = self.process_request_thread,
                                  args   = (self,))
             t.setName(threading._newname("%s:%%d" % tname))
-            t.setDaemon(True)
+            t.daemon = True
             t.start()
 
     def process_request_thread(self, mainthread):
