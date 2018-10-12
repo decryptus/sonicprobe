@@ -508,6 +508,16 @@ def load_yaml(stream, Loader = YamlLoader):
 def dump_yaml(data, stream = None, Dumper = YamlDumper, **kwds):
     return yaml.dump(data, stream, Dumper, **kwds)
 
+def load_conf_yaml_file(filepath, config_dir = None):
+    if config_dir and not filepath.startswith(os.path.sep):
+        filepath = os.path.join(config_dir, filepath)
+
+    if not os.path.isfile(filepath):
+        return {}
+
+    with open(filepath, 'r') as f:
+        return load_yaml(f)
+
 def load_yaml_file(uri):
     (c, b, r) = (None, None, None)
 
