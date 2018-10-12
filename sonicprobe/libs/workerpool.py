@@ -53,7 +53,7 @@ class WorkerThread(threading.Thread):
         if self.pool.life_time > 0 \
            and self.life_time > 0 \
            and (time.time() - self.life_time) >= self.pool.life_time:
-            LOG.debug("worker expired. (name: %r)", self.getName())
+            LOG.debug("worker expired")
             return True
 
         return False
@@ -62,12 +62,14 @@ class WorkerThread(threading.Thread):
         if self.pool.max_tasks > 0 \
            and self.nb_tasks > 0 \
            and self.nb_tasks >= self.pool.max_tasks:
-            LOG.debug("worker max tasks reached. (name: %r)", self.getName())
+            LOG.debug("worker max tasks reached")
             return True
 
         return False
 
     def run(self):
+        name = None
+
         while True:
             if self.expired() or self.max_tasks_reached():
                 if self.pool.auto_gc:
@@ -116,6 +118,7 @@ class WorkerThread(threading.Thread):
                     if __debug__:
                         self._note("%s.run(): starting complete callback: %r", self, complete)
                     complete(ret)
+                (args, kargs, ret) = (None, None, None)
 
             self.pool.tasks.task_done()
             self.pool.count_lock.acquire()
@@ -131,7 +134,7 @@ class WorkerThread(threading.Thread):
             or (self.pool.workers > 0 and self.pool.working >= self.pool.workers)) \
            and (self.pool.workers < self.pool.max_workers):
             self.pool.count_lock.release()
-            self.pool.add()
+            self.pool.add(name = name, xid = self.xid)
         else:
             self.pool.count_lock.release()
 
@@ -197,7 +200,7 @@ class WorkerPool(object):
         else:
             return "wpool:%d" % xid
 
-    def add(self, nb = 1, name = None):
+    def add(self, nb = 1, name = None, xid = None):
         """
         Create one or many workers.
         """
@@ -207,7 +210,8 @@ class WorkerPool(object):
                 self.count_lock.release()
                 continue
             self.workers += 1
-            xid           = self.workers
+            if xid is None:
+                xid = self.workers
             self.count_lock.release()
             self.kill_event.clear()
             w = WorkerThread(xid, self)
