@@ -7,6 +7,7 @@ import threading
 import time
 
 from SocketServer import socket
+from sonicprobe.libs.workerpool import WorkerPool
 
 LOG = logging.getLogger('sonicprobe.threading-tcp-server')
 
@@ -27,24 +28,62 @@ class ThreadingHTTPServer(SocketServer.ThreadingTCPServer):
         self.server_port = port
 
 
+class KillableDynThreadingTCPServer(SocketServer.ThreadingTCPServer):
+    _killed = False
+    allow_reuse_address = 1    # Seems to make sense in testing environment
+
+    def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
+        SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+
+        max_workers     = int(config.get('max_workers', 0))
+        max_requests    = int(config.get('max_requests'))
+        max_life_time   = int(config.get('max_life_time'))
+
+        if max_workers < 1:
+            max_workers = 1
+
+        self.requests   = Queue.Queue()
+        self.workerpool = WorkerPool(name        = name,
+                                     max_workers = max_workers,
+                                     max_tasks   = max_requests,
+                                     life_time   = max_life_time)
+
+    def kill(self):
+        self._killed = True
+        self.workerpool.killall(0)
+        return self._killed
+
+    def killed(self):
+        return self._killed
+
+    def handle_request(self):
+        """simply collect requests and put them on the queue for the workers."""
+        try:
+            request, client_address = self.get_request()
+        except socket.error:
+            return
+
+        if self.verify_request(request, client_address):
+            self.workerpool.run(self.process_request_thread,
+                                **{'request': request,
+                                   'client_address': client_address})
+
+    def handle_error(self, request, client_address):
+        LOG.debug("Exception happened during processing of request from: %r", client_address)
+        LOG.debug("", exc_info = 1)
+
+    def serve_until_killed(self):
+        """Handle one request at a time until we are murdered."""
+        while not self.killed():
+            self.handle_request()
+
+
+class KillableDynThreadingHTTPServer(KillableDynThreadingTCPServer, ThreadingHTTPServer):
+    def server_bind(self):
+        ThreadingHTTPServer.server_bind(self)
+
+
 class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
-    """
-    accepted_sockets = weakref.WeakSet()
-
-    def nb_connections(self):
-        return sum(1 for sock in self.accepted_sockets if sock.fileno() >= 0)
-
-    def verify_request(self, request, client_address):
-        if self.nb_connections() > 1:
-            LOG.info("### NB connections: %r ###", self.nb_connections())
-
-        self.accepted_sockets.add(self.socket)
-
-        return ThreadingHTTPServer.verify_request(self, request, client_address)
-    """
-
-    "Just introduces serve_until_killed(), which is specific to this module"
-
     _killed = False
     allow_reuse_address = 1    # Seems to make sense in testing environment
 
@@ -130,4 +169,8 @@ class KillableThreadingHTTPServer(KillableThreadingTCPServer, ThreadingHTTPServe
         ThreadingHTTPServer.server_bind(self)
 
 
-__all__ = ['ThreadingHTTPServer', 'KillableThreadingTCPServer', 'KillableThreadingHTTPServer']
+__all__ = ['ThreadingHTTPServer',
+           'KillableThreadingTCPServer',
+           'KillableThreadingHTTPServer',
+           'KillableDynThreadingTCPServer',
+           'KillableDynThreadingHTTPServer']

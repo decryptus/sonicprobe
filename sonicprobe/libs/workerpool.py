@@ -118,7 +118,7 @@ class WorkerThread(threading.Thread):
                     if __debug__:
                         self._note("%s.run(): starting complete callback: %r", self, complete)
                     complete(ret)
-                (args, kargs, ret) = (None, None, None)
+                del func, args, kargs
 
             self.pool.tasks.task_done()
             self.pool.count_lock.acquire()

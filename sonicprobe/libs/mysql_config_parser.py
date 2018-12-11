@@ -1,6 +1,7 @@
 __version__ = "$Revision: 7 $ $Date: 2009-04-21 11:24:43 +0200 (Tue, 21 Apr 2009) $"
 __license__ = """
     Copyright (C) 2009  Proformatique <technique@proformatique.com>
+    Copyright (C) 2018  doowan
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,13 +22,16 @@ import re
 from ConfigParser import ConfigParser, Error, NoSectionError, DuplicateSectionError, \
         NoOptionError, InterpolationError, InterpolationMissingOptionError, \
         InterpolationSyntaxError, InterpolationDepthError, ParsingError, \
-        MissingSectionHeaderError
+        MissingSectionHeaderError, _default_dict
 
 class MySQLConfigParser(ConfigParser):
     if os.name == 'nt':
         RE_INCLUDE_FILE = re.compile(r'^[^\.]+(?:\.ini|\.cnf)$').match
     else:
         RE_INCLUDE_FILE = re.compile(r'^[^\.]+\.cnf$').match
+
+    def __init__(self, defaults = None, dict_type = _default_dict, allow_no_value=True):
+        ConfigParser.__init__(self, defaults, dict_type, allow_no_value)
 
     @staticmethod
     def valid_filename(filename):
@@ -82,8 +86,6 @@ class MySQLConfigParserFilter(object):
                 return line
             elif sline.startswith(';'):
                 return line
-            elif sline and '=' not in line:
-                return "%s=true\n" % line.rstrip()
             else:
                 return line
 
