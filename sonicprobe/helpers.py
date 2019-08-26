@@ -1,49 +1,60 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
+import base64
 import errno
 import gzip
-import logging
 import os
-import psutil
-import pycurl
 import random
 import re
 import shutil
-import signal
+import smtplib
 import tempfile
 import time
-import unidecode
-import yaml
 
-import smtplib
 from email import encoders
 from email.header import Header
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.utils import COMMASPACE, formatdate
-from sonicprobe.libs import urisup
 
-try:
-    from StringIO import CStringIO as StringIO
-except ImportError:
-    from StringIO import StringIO
+import unidecode
+import psutil
 
+import yaml
 try:
     from yaml import CSafeLoader as YamlLoader, CDumper as YamlDumper
 except ImportError:
     from yaml import SafeLoader as YamlLoader, Dumper as YamlDumper
 
+import pycurl
 
-BUFFER_SIZE = 1 << 16
-LOG         = logging.getLogger('sonicprobe.helpers')
+from sonicprobe import logging
+from sonicprobe.libs import urisup
 
-_alphanum   = frozenset(
+try:
+    from StringIO import CStringIO as StringIO
+except ImportError:
+    from six import StringIO
+
+
+LOG            = logging.getLogger('sonicprobe.helpers')
+
+BUFFER_SIZE    = 1 << 16
+
+ALPHANUM       = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+RE_CRTL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
+RE_SPACE_CHARS = re.compile(r'\s\s+')
+
 
 def boolize(value):
     if isinstance(value, basestring):
-        if not value.isdigit():
+        if value.lower() in ('y', 'yes', 't', 'true'):
+            return True
+        elif not value.isdigit():
             return False
         value = int(value)
 
@@ -75,7 +86,19 @@ def clean_string(value):
     if not is_print(value):
         return False
 
-    return re.sub('\s\s+', ' ', value.strip())
+    return RE_SPACE_CHARS.sub(' ', value.strip())
+
+def raw_string(value):
+    def repl_crtl_chars(match):
+        s = match.group()
+        if isinstance(s, str):
+            return s.encode('string-escape')
+        elif isinstance(s, unicode):
+            return s.encode('unicode-escape')
+
+        return repr(s)[1:-1]
+
+    return RE_CRTL_CHARS.sub(repl_crtl_chars, value)
 
 def normalize_string(value, case = None):
     if not is_print(value):
@@ -87,8 +110,8 @@ def normalize_string(value, case = None):
         value = value.lower()
 
     return unidecode.unidecode(
-               clean_string(
-                   unicoder(value)))
+        clean_string(
+            unicoder(value)))
 
 def split_to_dict(value, sep):
     if not isinstance(value, dict):
@@ -256,12 +279,12 @@ def flush_sync_file_object(fo):
     fo.flush()
     os.fsync(fo.fileno())
 
-def file_writelines_flush_sync(path, lines):
+def file_writelines_flush_sync(path, lines, mode = 'w'):
     """
     Fill file at @path with @lines then flush all buffers
     (Python and system buffers)
     """
-    fp = open(path, 'w')
+    fp = open(path, mode)
     try:
         fp.writelines(lines)
         flush_sync_file_object(fp)
@@ -299,6 +322,98 @@ def file_w_tmp(lines, path = None, mode = 'w+'):
     shutil.move(f.name, path)
 
     return path
+
+def read_large_file(src, dst = None, buffer_size = 8192):
+    r           = ""
+    o           = None
+
+    if dst:
+        o = open(dst, 'wb')
+
+    if not hasattr(src, 'read'):
+        f = open(src, 'rb')
+    else:
+        f = src
+
+    while True:
+        data = f.read(buffer_size)
+        if not data:
+            break
+        if o:
+            o.write(data)
+        else:
+            r += data
+
+    if f:
+        f.close()
+
+    if o:
+        o.close()
+        return True
+
+    return r
+
+def base64_encode_file(src, dst = None, chunk_size = 8192):
+    r           = ""
+    o           = None
+    chunk_size -= chunk_size % 3 # align to multiples of 3
+
+    if dst:
+        o = open(dst, 'w')
+
+    if not hasattr(src, 'read'):
+        f = open(src, 'rb')
+    else:
+        f = src
+
+    while True:
+        data = f.read(chunk_size)
+        if not data:
+            break
+        if o:
+            o.write(base64.b64encode(data))
+        else:
+            r += base64.b64encode(data)
+
+    if f:
+        f.close()
+
+    if o:
+        o.close()
+        return True
+
+    return r
+
+def base64_decode_file(src, dst = None, chunk_size = 8192):
+    r           = ""
+    o           = None
+    chunk_size -= chunk_size % 4 # align to multiples of 4
+
+    if dst:
+        o = open(dst, 'wb')
+
+    if not hasattr(src, 'read'):
+        f = open(src, 'r')
+    else:
+        f = src
+
+    while True:
+        data = f.read(chunk_size)
+        if not data:
+            break
+        if o:
+            o.write(base64.b64decode(data))
+        else:
+            r += base64.b64decode(data)
+
+    if f:
+        f.close()
+
+    if o:
+        o.close()
+        return True
+
+    return r
 
 def touch(fname, times = None, exists = False):
     if exists:
@@ -344,7 +459,7 @@ def ps_kill(filename):
         except psutil.AccessDenied:
             continue
 
-    return
+    return None
 
 # States for linesubst()
 NORM    = object()
@@ -418,8 +533,8 @@ def linesubst(line, variables):
                 curvar += '}' + c
                 st = TWO
     if st is not NORM:
-        LOG.warning("st is not NORM at end of line: " + line)
-        LOG.warning("returned substitution: " + out)
+        LOG.warning("st is not NORM at end of line: %s", line)
+        LOG.warning("returned substitution: %s", out)
     return out
 
 def txtsubst(lines, variables, target_file=None, charset=None):
@@ -444,11 +559,11 @@ def txtsubst(lines, variables, target_file=None, charset=None):
     return ret
 
 def rand_str(size=8):
-    return ''.join(random.SystemRandom().choice(list(_alphanum)) for _ in range(size))
+    return ''.join(random.SystemRandom().choice(list(ALPHANUM)) for _ in range(size))
 
 def re_unescape(pattern):
     s           = []
-    alphanum    = _alphanum
+    alphanum    = ALPHANUM
     backslash   = False
 
     for c in pattern:
