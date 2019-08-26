@@ -3,6 +3,6 @@ pyOpenSSL
 python-magic
 psutil>=2.1
 pycurl
-PyYAML<=3.13,>=3.10
+PyYAML>=3.10
 Unidecode
 six>=1.4.0

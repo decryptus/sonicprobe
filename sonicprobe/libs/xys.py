@@ -656,7 +656,7 @@ def load(src):
     Parse the first XYS schema in a stream and produce the corresponding
     internal representation.
     """
-    return _transschema(yaml.load(src))
+    return _transschema(helpers.load_yaml(src, Loader = yaml.Loader))
 
 
 Nothing = object()
