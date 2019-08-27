@@ -59,7 +59,7 @@ def boolize(value):
             return False
         value = int(value)
 
-    return int(bool(value))
+    return bool(value)
 
 def is_scalar(value):
     """ Returns True if is scalar or False otherwise """
