@@ -28,15 +28,16 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlLoader, Dumper as YamlDumper
 
-import pycurl
-
-from sonicprobe import logging
-from sonicprobe.libs import urisup
-
+from six import string_types
 try:
     from StringIO import CStringIO as StringIO
 except ImportError:
     from six import StringIO
+
+import pycurl
+
+from sonicprobe import logging
+from sonicprobe.libs import urisup
 
 
 LOG            = logging.getLogger('sonicprobe.helpers')
@@ -51,7 +52,7 @@ RE_SPACE_CHARS = re.compile(r'\s\s+')
 
 
 def boolize(value):
-    if isinstance(value, basestring):
+    if isinstance(value, string_types):
         if value.lower() in ('y', 'yes', 't', 'true'):
             return True
         elif not value.isdigit():
@@ -62,11 +63,11 @@ def boolize(value):
 
 def is_scalar(value):
     """ Returns True if is scalar or False otherwise """
-    return isinstance(value, (basestring, bool, int, long, float))
+    return isinstance(value, (string_types, bool, int, long, float))
 
 def is_print(value, space = True, tab = False, crlf = False):
     """ Returns True if is print or False otherwise """
-    if not isinstance(value, basestring):
+    if not isinstance(value, string_types):
         return False
 
     regex = r'\x00-\x08\x0B\x0C\x0E-\x1F\x7F'
@@ -151,7 +152,7 @@ def has_len(value, default=False, retvalue=False):
     if isinstance(value, bool):
         value = int(value)
 
-    if not isinstance(value, basestring):
+    if not isinstance(value, string_types):
         value = str(value)
 
     if not value:
@@ -460,6 +461,25 @@ def ps_kill(filename):
             continue
 
     return None
+
+def escape_parse_args(argslist, argv):
+    r = []
+    l = len(argv)
+    s = False
+
+    for i, arg in enumerate(argv):
+        if s:
+            s = False
+        elif arg in argslist \
+           and l >= i + 1 \
+           and isinstance(argv[i + 1], string_types) \
+           and argv[i + 1].startswith('-'):
+            r.append(u"%s=%s" % (arg, argv[i + 1]))
+            s = True
+        else:
+            r.append(arg)
+
+    return r
 
 # States for linesubst()
 NORM    = object()
