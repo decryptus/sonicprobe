@@ -1,43 +1,25 @@
 # -*- coding: utf-8 -*-
-"""workerpool"""
-
-__author__  = "Adrien DELLE CAVE <adc@doowan.net>"
-__license__ = """
-    Copyright (C) 2015  doowan
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
-"""
-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.workerpool"""
 
 import gc
 import logging
-import Queue
 import threading
 import time
 
+from six.moves import queue as _queue, range as xrange
 
 LOG = logging.getLogger('sonicprobe.workerpool')
 
 
-class WorkerExit(object):
+class WorkerExit(object): # pylint: disable=useless-object-inheritance,too-few-public-methods
     pass
 
 
 class WorkerThread(threading.Thread):
     def __init__(self, xid, pool):
-        threading.Thread.__init__(self, verbose = pool.verbose)
+        threading.Thread.__init__(self)
         self.daemon     = True
         self.pool       = pool
         self.life_time  = None
@@ -81,7 +63,7 @@ class WorkerThread(threading.Thread):
 
             try:
                 task = self.pool.tasks.get_nowait()
-            except Queue.Empty:
+            except _queue.Empty:
                 continue
 
             if isinstance(task, WorkerExit):
@@ -99,24 +81,17 @@ class WorkerThread(threading.Thread):
             func, cb, name, complete, args, kargs = task
             self.setName(self.pool.get_name(self.xid, name))
 
-            if __debug__:
-                self._note("%s.run(): starting function: %r", self, func)
-
             ret = None
 
             try:
                 self.nb_tasks += 1
                 ret = func(*args, **kargs)
                 if cb:
-                    if __debug__:
-                        self._note("%s.run(): starting callback: %r", self, cb)
                     cb(ret)
-            except Exception, e:
+            except Exception as e:
                 LOG.exception("unexpected error: %r", e)
             finally:
                 if complete:
-                    if __debug__:
-                        self._note("%s.run(): starting complete callback: %r", self, complete)
                     complete(ret)
                 del func, args, kargs
 
@@ -139,20 +114,19 @@ class WorkerThread(threading.Thread):
             self.pool.count_lock.release()
 
 
-class WorkerPool(object):
-    def __init__(self, queue = None, max_workers = 10, life_time = None, name = None, max_tasks = None, auto_gc = True, verbose = None):
-        self.tasks          = queue or Queue.Queue()
-        self.workers        = 0
-        self.working        = 0
-        self.max_workers    = max_workers
-        self.life_time      = life_time
-        self.name           = name
-        self.max_tasks      = max_tasks
-        self.auto_gc        = auto_gc
-        self.verbose        = verbose
+class WorkerPool(object): # pylint: disable=useless-object-inheritance
+    def __init__(self, queue = None, max_workers = 10, life_time = None, name = None, max_tasks = None, auto_gc = True):
+        self.tasks       = queue or _queue.Queue()
+        self.workers     = 0
+        self.working     = 0
+        self.max_workers = max_workers
+        self.life_time   = life_time
+        self.name        = name
+        self.max_tasks   = max_tasks
+        self.auto_gc     = auto_gc
 
-        self.kill_event     = threading.Event()
-        self.count_lock     = threading.RLock()
+        self.kill_event  = threading.Event()
+        self.count_lock  = threading.RLock()
 
         self.kill_event.set()
 
@@ -176,7 +150,7 @@ class WorkerPool(object):
         if nb > self.workers:
             nb = self.workers
         self.count_lock.release()
-        for x in xrange(nb):
+        for x in xrange(nb): # pylint: disable=unused-variable
             self.tasks.put(WorkerExit())
 
     def set_max_workers(self, nb):
@@ -195,16 +169,17 @@ class WorkerPool(object):
     def get_name(self, xid, name = None):
         if name:
             return "%s:%d" % (name, xid)
-        elif self.name:
+
+        if self.name:
             return "%s:%d" % (self.name, xid)
-        else:
-            return "wpool:%d" % xid
+
+        return "wpool:%d" % xid
 
     def add(self, nb = 1, name = None, xid = None):
         """
         Create one or many workers.
         """
-        for x in xrange(nb):
+        for x in xrange(nb): # pylint: disable=unused-variable
             self.count_lock.acquire()
             if self.workers >= self.max_workers:
                 self.count_lock.release()

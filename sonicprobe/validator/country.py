@@ -1,5 +1,9 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.validator.country"""
+
+import six
 
 from sonicprobe import helpers
 
@@ -248,10 +252,7 @@ COUNTRIES   = {
     'zr':   'Zaire',
     'zw':   'Zimbabwe'}
 
-class SPValidatorCountry:
-    def __init__(self):
-        pass
-
+class SPValidatorCountry(object): # pylint: disable=useless-object-inheritance
     @staticmethod
     def getCountry(value):
         """
@@ -262,7 +263,7 @@ class SPValidatorCountry:
         if not helpers.has_len(value):
             return False
 
-        return COUNTRIES.get(str(value).lower(), False)
+        return COUNTRIES.get(six.ensure_str(value).lower(), False)
 
     @staticmethod
     def getCountries():
@@ -284,4 +285,4 @@ class SPValidatorCountry:
         if not helpers.has_len(value):
             return False
 
-        return COUNTRIES.has_key(str(value).lower())
+        return six.ensure_str(value).lower() in COUNTRIES

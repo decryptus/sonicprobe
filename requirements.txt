@@ -1,8 +1,10 @@
-httpdis>=0.5.15
+httpdis>=0.6.1
 pyOpenSSL
 python-magic
 psutil>=2.1
 pycurl
 PyYAML>=3.10
+#pyserial
 Unidecode
 six>=1.4.0
+#xmodem

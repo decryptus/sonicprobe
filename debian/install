@@ -1,0 +1,3 @@
+requirements.txt usr/share/python-sonicprobe
+setup.py usr/share/python-sonicprobe
+VERSION usr/share/python-sonicprobe

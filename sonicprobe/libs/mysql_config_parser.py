@@ -1,28 +1,17 @@
-__version__ = "$Revision: 7 $ $Date: 2009-04-21 11:24:43 +0200 (Tue, 21 Apr 2009) $"
-__license__ = """
-    Copyright (C) 2009  Proformatique <technique@proformatique.com>
-    Copyright (C) 2018  doowan
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
+# -*- coding: utf-8 -*-
+# Copyright 2008-2019 Proformatique
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.mysql_config_parser"""
 
 import os
 import re
-from ConfigParser import ConfigParser, Error, NoSectionError, DuplicateSectionError, \
+
+# pylint: disable=unused-import
+from six.moves.configparser import ConfigParser, Error, NoSectionError, DuplicateSectionError, \
         NoOptionError, InterpolationError, InterpolationMissingOptionError, \
         InterpolationSyntaxError, InterpolationDepthError, ParsingError, \
         MissingSectionHeaderError, _default_dict
+import six
 
 class MySQLConfigParser(ConfigParser):
     if os.name == 'nt':
@@ -35,12 +24,12 @@ class MySQLConfigParser(ConfigParser):
 
     @staticmethod
     def valid_filename(filename):
-        if isinstance(filename, basestring) and MySQLConfigParser.RE_INCLUDE_FILE(filename):
+        if isinstance(filename, six.string_types) and MySQLConfigParser.RE_INCLUDE_FILE(filename):
             return True
 
         return False
 
-    def getboolean(self, section, option, retint=False):
+    def getboolean(self, section, option, retint=False): # pylint: disable=arguments-differ
         ret = ConfigParser.getboolean(self, section, option)
 
         if not retint:
@@ -48,8 +37,8 @@ class MySQLConfigParser(ConfigParser):
 
         return(int(ret))
 
-    def read(self, filenames):
-        if isinstance(filenames, basestring):
+    def read(self, filenames, encoding=None):
+        if isinstance(filenames, six.string_types):
             filenames = [filenames]
 
         file_ok = []
@@ -57,13 +46,22 @@ class MySQLConfigParser(ConfigParser):
             if self.valid_filename(os.path.basename(filename)):
                 file_ok.append(filename)
 
-        return ConfigParser.read(self, file_ok)
+        if six.PY2:
+            return ConfigParser.read(self, file_ok)
+
+        return ConfigParser.read(self, file_ok, encoding)
 
     def readfp(self, fp, filename=None):
         return ConfigParser.readfp(self, MySQLConfigParserFilter(fp), filename)
 
+    def read_file(self, f, source=None):
+        if six.PY2:
+            return ConfigParser.readfp(self, MySQLConfigParserFilter(f), source)
 
-class MySQLConfigParserFilter(object):
+        return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source)
+
+
+class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inheritance
     RE_HEADER_OPT  = re.compile(r'^\s*\[[^\]]+\]\s*').match
     RE_INCLUDE_OPT = re.compile(r'^\s*!\s*(?:(include|includedir)\s+(.+))$').match
 
@@ -82,29 +80,31 @@ class MySQLConfigParserFilter(object):
         if not sline or sline[0] != '!':
             if self.RE_HEADER_OPT(line):
                 return line
-            elif sline.startswith('#'):
+
+            if sline.startswith('#'):
                 return line
-            elif sline.startswith(';'):
+
+            if sline.startswith(';'):
                 return line
-            else:
-                return line
+
+            return line
 
         mline = self.RE_INCLUDE_OPT(sline)
 
         if not mline:
             raise ParsingError("Unable to parse the line: %r." % line)
-            return "#%s" % line
+            #return "#%s" % line
 
         opt = mline.group(2).strip()
 
         if not opt:
             raise ParsingError("Empty path for include or includir option (%r)." % line)
-            return "#%s" % line
+            #return "#%s" % line
 
         if mline.group(1) == 'include':
             if not MySQLConfigParser.RE_INCLUDE_FILE(opt):
                 raise ParsingError("Wrong filename for include option (%r)." % line)
-                return "#%s" % line
+                #return "#%s" % line
 
             self._add_lines(opt)
         else:

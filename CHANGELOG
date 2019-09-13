@@ -1,0 +1,512 @@
+python-sonicprobe (0.3.2) unstable; urgency=medium
+
+  * Bug fixed urisup.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 13 Sep 2019 20:45:50 +0200
+
+python-sonicprobe (0.3.1) unstable; urgency=medium
+
+  * Reviewed dependencies.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 13 Sep 2019 16:10:09 +0200
+
+python-sonicprobe (0.3.0) unstable; urgency=medium
+
+  * Added py3 compatibility.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 13 Sep 2019 14:39:34 +0200
+
+python-sonicprobe (0.2.81) unstable; urgency=medium
+
+  * Fixed function helpers.boolize.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 27 Aug 2019 16:07:25 +0200
+
+python-sonicprobe (0.2.80) unstable; urgency=medium
+
+  * Added function helpers.escape_parse_args.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 27 Aug 2019 07:56:18 +0200
+
+python-sonicprobe (0.2.79) unstable; urgency=medium
+
+  * Fixed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 26 Aug 2019 14:36:18 +0200
+
+python-sonicprobe (0.2.78) unstable; urgency=medium
+
+  * Fixed xys yaml loader.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 26 Aug 2019 14:35:05 +0200
+
+python-sonicprobe (0.2.77) unstable; urgency=medium
+
+  * Reviewed PyYAML<=3.13,>=3.10 requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 26 Aug 2019 11:27:36 +0200
+
+python-sonicprobe (0.2.76) unstable; urgency=medium
+
+  * Added function helpers.read_large_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 23 Aug 2019 16:41:24 +0200
+
+python-sonicprobe (0.2.75) unstable; urgency=medium
+
+  * Reviewed function helpers.boolize.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 23 Aug 2019 11:58:02 +0200
+
+python-sonicprobe (0.2.74) unstable; urgency=medium
+
+  * Fixed functions helpers.base64_encode_file and helpers.base64_decode_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 23 Aug 2019 10:35:37 +0200
+
+python-sonicprobe (0.2.73) unstable; urgency=medium
+
+  * Reviewed functions helpers.base64_encode_file and helpers.base64_decode_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 23 Aug 2019 09:56:43 +0200
+
+python-sonicprobe (0.2.72) unstable; urgency=medium
+
+  * Added functions helpers.base64_encode_file and helpers.base64_decode_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 22 Aug 2019 16:42:09 +0200
+
+python-sonicprobe (0.2.71) unstable; urgency=medium
+
+  * Added function helpers.raw_string.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 01 Mar 2019 18:51:22 +0100
+
+python-sonicprobe (0.2.70) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 22 Feb 2019 19:20:46 +0100
+
+python-sonicprobe (0.2.69) unstable; urgency=medium
+
+  * Reviewed requirements. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 10 Dec 2018 11:43:15 +0100
+
+python-sonicprobe (0.2.68) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 10 Dec 2018 11:24:31 +0100
+
+python-sonicprobe (0.2.67) unstable; urgency=medium
+
+  * Fixed MySQLConfigParser.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 09 Nov 2018 13:06:38 +0100
+
+python-sonicprobe (0.2.66) unstable; urgency=medium
+
+  * Added class KillableDynThreadingTCPServer.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 13 Oct 2018 10:23:43 +0200
+
+python-sonicprobe (0.2.65) unstable; urgency=medium
+
+  * Reviewed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 12 Oct 2018 22:43:11 +0200
+
+python-sonicprobe (0.2.64) unstable; urgency=medium
+
+  * Fixed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 12 Oct 2018 20:45:42 +0200
+
+python-sonicprobe (0.2.63) unstable; urgency=medium
+
+  * Added max tasks on workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 12 Oct 2018 20:35:27 +0200
+
+python-sonicprobe (0.2.62) unstable; urgency=medium
+
+  * Reviewed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 12 Oct 2018 15:42:27 +0200
+
+python-sonicprobe (0.2.61) unstable; urgency=medium
+
+  * Added function helpers.load_conf_yaml_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 12 Oct 2018 10:53:30 +0200
+
+python-sonicprobe (0.2.60) unstable; urgency=medium
+
+  * Added method clean for XBStreamObject.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 08 Oct 2018 14:26:25 +0200
+
+python-sonicprobe (0.2.59) unstable; urgency=medium
+
+  * Added xys isFloat.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 04 Oct 2018 09:10:37 +0200
+
+python-sonicprobe (0.2.58) unstable; urgency=medium
+
+  * Fixed xys.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 02 Oct 2018 03:46:02 +0200
+
+python-sonicprobe (0.2.57) unstable; urgency=medium
+
+  * Fixed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 26 Sep 2018 02:11:31 +0200
+
+python-sonicprobe (0.2.56) unstable; urgency=medium
+
+  * Added complete callback in workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 26 Sep 2018 01:32:53 +0200
+
+python-sonicprobe (0.2.55) unstable; urgency=medium
+
+  * Reviewed debian/postinst.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 24 Sep 2018 11:45:28 +0200
+
+python-sonicprobe (0.2.54) unstable; urgency=medium
+
+  * Fixed debian dependencies.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 24 Sep 2018 11:22:31 +0200
+
+python-sonicprobe (0.2.53) unstable; urgency=medium
+
+  * Reviewed requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 24 Sep 2018 09:00:07 +0200
+
+python-sonicprobe (0.2.52) unstable; urgency=medium
+
+  * Reviewed requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 23 Sep 2018 13:42:05 +0200
+
+python-sonicprobe (0.2.51) unstable; urgency=medium
+
+  * Reviewed requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 23 Sep 2018 11:43:00 +0200
+
+python-sonicprobe (0.2.50) unstable; urgency=medium
+
+  * Added requirements.txt httpdis.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 23 Sep 2018 11:20:14 +0200
+
+python-sonicprobe (0.2.49) unstable; urgency=medium
+
+  * Fixed xys.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 19 Sep 2018 21:39:50 +0200
+
+python-sonicprobe (0.2.48) unstable; urgency=medium
+
+  * Reviewed xys behaviour, added optional for validator node.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 19 Sep 2018 19:53:29 +0200
+
+python-sonicprobe (0.2.47) unstable; urgency=medium
+
+  * Reviewed xys behaviour, added mandatory for validator node.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 19 Sep 2018 19:19:46 +0200
+
+python-sonicprobe (0.2.46) unstable; urgency=medium
+
+  * Reviewed xys behaviour.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 17 Sep 2018 09:57:08 +0200
+
+python-sonicprobe (0.2.45) unstable; urgency=medium
+
+  * Reviewed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 11 Sep 2018 14:18:53 +0200
+
+python-sonicprobe (0.2.44) unstable; urgency=medium
+
+  * Reviewed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 11 Sep 2018 11:05:44 +0200
+
+python-sonicprobe (0.2.43) unstable; urgency=medium
+
+  * Reviewed workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 10 Sep 2018 10:14:41 +0200
+
+python-sonicprobe (0.2.42) unstable; urgency=medium
+
+  * Fixed is_scalar in helpers. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 06 Jul 2018 22:39:57 +0200
+
+python-sonicprobe (0.2.41) unstable; urgency=medium
+
+  * Fixed testmethods in libs.http_json_server.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 01 Jul 2018 17:37:05 +0200
+
+python-sonicprobe (0.2.40) unstable; urgency=medium
+
+  * [FEATURES] Added helpers.load_yaml, helpers.dump_yaml and
+    helpers.section_from_yaml_file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 23 Jun 2018 20:18:32 +0200
+
+python-sonicprobe (0.2.39) unstable; urgency=medium
+
+  * Added parameter mode for helpers.file_w_tmp.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 28 May 2018 10:38:04 +0200
+
+python-sonicprobe (0.2.38) unstable; urgency=medium
+
+  * Added option autocommit in libs.BackSQL.backmysql.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 27 May 2018 19:28:50 +0200
+
+python-sonicprobe (0.2.37) unstable; urgency=medium
+
+  * Fixed helpers.normalize_string.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 16 May 2018 21:27:59 +0200
+
+python-sonicprobe (0.2.36) unstable; urgency=medium
+
+  * Fixed magic library in sonicprobe/libs/http_json_server.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 12 May 2018 11:06:56 +0200
+
+python-sonicprobe (0.2.35) unstable; urgency=medium
+
+  * Added max_life_time option in libs/threading_tcp_server.KillableThreadingTCPServer.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 29 Apr 2018 13:21:55 +0200
+
+python-sonicprobe (0.2.34) unstable; urgency=medium
+
+  * Added max_requests option in libs/threading_tcp_server.KillableThreadingTCPServer.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 28 Apr 2018 20:59:24 +0200
+
+python-sonicprobe (0.2.33) unstable; urgency=medium
+
+  * Fixed python-magic dependency.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 24 Mar 2018 22:49:48 +0100
+
+python-sonicprobe (0.2.32) unstable; urgency=medium
+
+  * Fixed gc.collect in xbstream.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 23 Mar 2018 11:17:09 +0100
+
+python-sonicprobe (0.2.31) unstable; urgency=medium
+
+  * Added gc.collect in xbstream.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 15 Mar 2018 02:37:36 +0100
+
+python-sonicprobe (0.2.30) unstable; urgency=medium
+
+  * Fixed debian dependencies.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 24 Feb 2018 17:26:40 +0100
+
+python-sonicprobe (0.2.29) unstable; urgency=medium
+
+  * Modified option exists in function helpers.touch.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 20 Feb 2018 13:08:15 +0100
+
+python-sonicprobe (0.2.28) unstable; urgency=medium
+
+  * Modified option exists in function helpers.touch.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 20 Feb 2018 12:17:37 +0100
+
+python-sonicprobe (0.2.27) unstable; urgency=medium
+
+  * Added option exists in function helpers.touch. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 20 Feb 2018 12:12:05 +0100
+
+python-sonicprobe (0.2.26) unstable; urgency=medium
+
+  * Added function helpers.touch. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 20 Feb 2018 11:31:07 +0100
+
+python-sonicprobe (0.2.25) unstable; urgency=medium
+
+  * [FEATURES] Added url in setup.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 11 Feb 2018 00:58:51 +0100
+
+python-sonicprobe (0.2.24) unstable; urgency=medium
+
+  * Fixed setup.py 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 11 Feb 2018 00:40:36 +0100
+
+python-sonicprobe (0.2.23) unstable; urgency=medium
+
+  * Replaced local rfc6266 by pip package rfc6266. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 11 Feb 2018 00:12:19 +0100
+
+python-sonicprobe (0.2.22) unstable; urgency=medium
+
+  * Added methods get_headers and get_method in libs/http_json_server.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 09 Feb 2018 17:23:44 +0100
+
+python-sonicprobe (0.2.21) unstable; urgency=medium
+
+  * Added stretch build
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 08 Feb 2018 18:19:56 +0100
+
+python-sonicprobe (0.2.20) unstable; urgency=medium
+
+  * Fixed tasks clear in libs/workerpool.py 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 28 Jan 2018 19:42:45 +0100
+
+python-sonicprobe (0.2.19) unstable; urgency=medium
+
+  * Added garbage collector in libs/workerpool.py 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 28 Jan 2018 18:35:40 +0100
+
+python-sonicprobe (0.2.18) unstable; urgency=medium
+
+  * Fixed library workerpool. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 22 Jan 2018 18:40:44 +0100
+
+python-sonicprobe (0.2.17) unstable; urgency=medium
+
+  * Fixed library xbstream FILE_CHUNK_COUNT
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 10 Jan 2018 18:20:10 +0100
+
+python-sonicprobe (0.2.16) unstable; urgency=medium
+
+  * Fixed workerpool count_lock.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 07 Jan 2018 03:36:33 +0100
+
+python-sonicprobe (0.2.15) unstable; urgency=medium
+
+  * Fixed XBStreamObject copy on tx callback.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 05 Jan 2018 16:46:50 +0100
+
+python-sonicprobe (0.2.14) unstable; urgency=medium
+
+  * Added python-dev dependency. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 03 Jan 2018 10:14:29 +0100
+
+python-sonicprobe (0.2.13) unstable; urgency=medium
+
+  * Removed num_threads in helpers.ps_info. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 02 Jan 2018 18:40:59 +0100
+
+python-sonicprobe (0.2.12) unstable; urgency=medium
+
+  * Changed dependency version for psutil.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 02 Jan 2018 18:20:44 +0100
+
+python-sonicprobe (0.2.11) unstable; urgency=medium
+
+  * Fixed helpers.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 02 Jan 2018 15:40:30 +0100
+
+python-sonicprobe (0.2.10) unstable; urgency=medium
+
+  * Added mysql_config_parser.py library.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 29 Dec 2017 08:49:44 +0100
+
+python-sonicprobe (0.2.9) unstable; urgency=medium
+
+  * Reviewed Keystore library.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 20 Dec 2017 14:36:53 +0100
+
+python-sonicprobe (0.2.8) unstable; urgency=medium
+
+  * Added method reset_chunk_count in xbstream.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 19 Dec 2017 15:13:32 +0100
+
+python-sonicprobe (0.2.7) unstable; urgency=medium
+
+  * Fixed library xbstream
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 18 Dec 2017 19:38:31 +0100
+
+python-sonicprobe (0.2.6) unstable; urgency=medium
+
+  * Added library threading_tcp_server
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 18 Dec 2017 18:49:53 +0100
+
+python-sonicprobe (0.2.5) unstable; urgency=medium
+
+  * Added library xbstream
+  * Reviewed library keystore
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 18 Dec 2017 17:59:34 +0100
+
+python-sonicprobe (0.2.4) unstable; urgency=medium
+
+  * Added function helpers.gzipfile
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 13 Dec 2017 17:25:06 +0100
+
+python-sonicprobe (0.2.3) unstable; urgency=medium
+
+  * Added function helpers.load_patterns_from_file
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 07 Dec 2017 13:19:37 +0100
+
+python-sonicprobe (0.2.2) unstable; urgency=medium
+
+  * Added keystore.py library
+  * Added modifier in xys
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 05 Dec 2017 11:32:23 +0100
+
+python-sonicprobe (0.2.1) unstable; urgency=medium
+
+  * Fixed debian control
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 30 Nov 2017 12:38:16 +0100
+
+python-sonicprobe (0.2) unstable; urgency=medium
+
+  * Initial release.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 27 Nov 2017 17:02:14 +0100

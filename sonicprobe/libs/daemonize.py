@@ -1,27 +1,11 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+# Copyright 2007-2019 The Wazo Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.daemonize"""
+
 """Transforms a process into a daemon from hell
 
-Copyright (C) 2007-2010  Avencall
-
 WARNING: Linux specific module, needs /proc/
-"""
-
-__version__ = "$Revision$ $Date$"
-__license__ = """
-    Copyright (C) 2007-2010  Avencall
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import os
@@ -29,14 +13,18 @@ import re
 import sys
 import errno
 import logging
-
+from contextlib import contextmanager
 
 SLASH_PROC = os.sep + 'proc'
 PROG_SLINK = 'exe'
 PROG_CMDLN = 'cmdline'
 
 
-log = logging.getLogger(__name__) # pylint: disable-msg=C0103
+LOG = logging.getLogger(__name__)  # pylint: disable-msg=C0103
+
+
+def c14n_prog_name(arg):
+    return os.path.basename(re.sub(r'\.py$', '', arg))
 
 
 def remove_if_stale_pidfile(pidfile):
@@ -45,21 +33,24 @@ def remove_if_stale_pidfile(pidfile):
 
     Exceptions are logged and are not propagated.
     """
-    c14n_prog_name = lambda arg: os.path.basename(re.sub(r'\.py$', '', arg))
     try:
         try:
-            pid_maydaemon = int(file(pidfile).readline().strip())
-        except IOError, e:
+            pid_maydaemon = int(open(pidfile).readline().strip())
+        except IOError as e:
             if e.errno == errno.ENOENT:
-                return # nothing to suppress, so do nothing...
+                return  # nothing to suppress, so do nothing...
             raise
         # Who are we?
         i_am = c14n_prog_name(sys.argv[0])
         try:
-            other_cmdline = file(os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_CMDLN)).read().split('\0')
-            if len(other_cmdline) and other_cmdline[-1] == "":
+            other_cmdline = (
+                open(os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_CMDLN))
+                .read()
+                .split('\0')
+            )
+            if other_cmdline and other_cmdline[-1] == "":
                 other_cmdline.pop()
-        except IOError, e:
+        except IOError as e:
             if e.errno == errno.ENOENT:
                 # no process with the PID extracted from the
                 # pidfile, so no problem to remove the latter
@@ -67,17 +58,24 @@ def remove_if_stale_pidfile(pidfile):
                 return
             raise
         # Check the whole command line of the other process
-        if i_am in map(c14n_prog_name, other_cmdline):
-            log.warning("A pidfile %r already exists (contains pid %d) and the correponding process command line contains our own name %r",
-                        pidfile, pid_maydaemon, i_am)
+        if i_am in list(map(c14n_prog_name, other_cmdline)):
+            LOG.warning(
+                "A pidfile %r already exists (contains pid %d) and the "
+                "correponding process command line contains our own name %r",
+                pidfile,
+                pid_maydaemon,
+                i_am,
+            )
             return
         # It may not be us, but we must be quite sure about that so also try
         # to validate with the name of the executable.
         full_pgm = lock_pgm = None
         try:
-            full_pgm = os.readlink(os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_SLINK))
+            full_pgm = os.readlink(
+                os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_SLINK)
+            )
             lock_pgm = os.path.basename(full_pgm)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EACCES:
                 # We consider it's ok not being able to access
                 # "/proc/<pid>/exe" if we could previously access
@@ -89,19 +87,32 @@ def remove_if_stale_pidfile(pidfile):
             else:
                 raise
         if i_am == lock_pgm:
-            log.warning("A pidfile %r already exists (contains pid %d) and an executable with our name %r is runnning with that pid.",
-                        pidfile, pid_maydaemon, i_am)
+            LOG.warning(
+                "A pidfile %r already exists (contains pid %d) and an "
+                "executable with our name %r is runnning with that pid.",
+                pidfile,
+                pid_maydaemon,
+                i_am,
+            )
             return
         # Ok to remove the previously existing pidfile now.
-        log.info("A pidfile %r already exists (contains pid %d) but the corresponding process does not seem to match with our own name %r.  "
-                 "Will remove the pidfile.", pidfile, pid_maydaemon, i_am)
-        log.info("Splitted command line of the other process: %s", other_cmdline)
+        LOG.info(
+            "A pidfile %r already exists (contains pid %d) but the "
+            "corresponding process does not seem to match with our own name %r.  "
+            "Will remove the pidfile.",
+            pidfile,
+            pid_maydaemon,
+            i_am,
+        )
+        LOG.info("Splitted command line of the other process: %s", other_cmdline)
         if lock_pgm:
-            log.info("Name of the executable the other process comes from: %s", full_pgm)
+            LOG.info(
+                "Name of the executable the other process comes from: %s", full_pgm
+            )
         os.unlink(pidfile)
         return
-    except Exception: # pylint: disable-msg=W0703
-        log.exception("unexpected error")
+    except Exception:  # pylint: disable-msg=W0703
+        LOG.exception("unexpected error")
 
 
 def take_file_lock(own_file, lock_file, own_content):
@@ -121,20 +132,24 @@ def take_file_lock(own_file, lock_file, own_content):
             os.link(own_file, lock_file)
         finally:
             os.unlink(own_file)
-    except OSError, e:
+    except OSError as e:
         if e.errno == errno.EEXIST:
-            log.warning("The lock file %r already exists - won't "
-                    "overwrite it.  An other instance of ourself "
-                    "is probably running.", lock_file)
+            LOG.warning(
+                "The lock file %r already exists - won't "
+                "overwrite it.  An other instance of ourself "
+                "is probably running.",
+                lock_file,
+            )
             return False
-        else:
-            raise
-    content = file(lock_file).read(len(own_content) + 1)
+        raise
+    content = open(lock_file).read(len(own_content) + 1)
     if content != own_content:
-        log.warning(
-                "I thought I successfully took the lock file %r but "
-                "it does not contain what was expected.  Somebody is "
-                "playing with us.", lock_file)
+        LOG.warning(
+            "I thought I successfully took the lock file %r but "
+            "it does not contain what was expected.  Somebody is "
+            "playing with us.",
+            lock_file,
+        )
         return False
     return True
 
@@ -162,7 +177,7 @@ def lock_pidfile_or_die(pidfile):
     except SystemExit:
         raise
     except Exception:
-        log.exception("unable to take pidfile")
+        LOG.exception("unable to take pidfile")
         sys.exit(1)
     return pid
 
@@ -174,13 +189,13 @@ def unlock_pidfile(pidfile):
     """
     try:
         pid = "%s\n" % os.getpid()
-        content = file(pidfile).read(len(pid) + 1)
+        content = open(pidfile).read(len(pid) + 1)
         if content == pid:
             os.unlink(pidfile)
         else:
-            log.error("can not force unlock the pidfile of others")
-    except (IOError, OSError), e:
-        log.error("%s: %s", type(e).__name__, e)
+            LOG.error("can not force unlock the pidfile of others")
+    except (IOError, OSError) as e:
+        LOG.error("%s: %s", type(e).__name__, e)
 
 
 def daemonize():
@@ -199,9 +214,10 @@ def daemonize():
     try:
         pid = os.fork()
         if pid > 0:
-            os._exit(0) # pylint: disable-msg=W0212
-    except OSError, e:
-        log.exception("first fork() failed: %d (%s)", e.errno, e.strerror)
+            os.waitpid(pid, 0)
+            os._exit(0)  # pylint: disable-msg=W0212
+    except OSError as e:
+        LOG.exception("first fork() failed: %d (%s)", e.errno, e.strerror)
         sys.exit(1)
 
     os.setsid()
@@ -211,9 +227,9 @@ def daemonize():
     try:
         pid = os.fork()
         if pid > 0:
-            os._exit(0) # pylint: disable-msg=W0212
-    except OSError, e:
-        log.exception("second fork() failed: %d (%s)", e.errno, e.strerror)
+            os._exit(0)  # pylint: disable-msg=W0212
+    except OSError as e:
+        LOG.exception("second fork() failed: %d (%s)", e.errno, e.strerror)
         sys.exit(1)
 
     try:
@@ -222,16 +238,31 @@ def daemonize():
         for stdf in (sys.__stdout__, sys.__stderr__):
             try:
                 stdf.flush()
-            except Exception: # pylint: disable-msg=W0703,W0704
+            except Exception:  # pylint: disable-msg=W0703
                 pass
 
         for stdf in (sys.__stdin__, sys.__stdout__, sys.__stderr__):
             try:
                 os.dup2(devnull_fd, stdf.fileno())
-            except OSError: # pylint: disable-msg=W0704
+            except OSError:
                 pass
-    except Exception: # pylint: disable-msg=W0703
-        log.exception("error during file descriptor redirection")
+    except Exception:  # pylint: disable-msg=W0703
+        LOG.exception("error during file descriptor redirection")
 
 
-# TODO: some automatic tests
+@contextmanager
+def pidfile_context(pid_file_name, foreground=False):
+    if not foreground:
+        LOG.debug("Daemonizing...")
+        daemonize()
+        LOG.debug("Daemonized.")
+
+    LOG.debug("Locking PID file...")
+    lock_pidfile_or_die(pid_file_name)
+    LOG.debug("PID file locked.")
+    try:
+        yield
+    finally:
+        LOG.debug("Unlocking PID...")
+        unlock_pidfile(pid_file_name)
+        LOG.debug("PID file unlocked.")

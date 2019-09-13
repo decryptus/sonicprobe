@@ -1,5 +1,7 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.sp_logging.QueueSMTPHandler"""
 
 import smtplib
 
@@ -9,7 +11,8 @@ except ImportError:
     from email.Utils import formatdate
 
 from logging.handlers import SMTPHandler
-from string import join
+
+import six
 
 
 class QueueSMTPHandler(SMTPHandler):
@@ -25,8 +28,7 @@ class QueueSMTPHandler(SMTPHandler):
     def getSubject(self, record):
         if self.logger_name:
             return "[%s] %s Event" % (self.logger_name, record.levelname)
-        else:
-            return "%s Event" % record.levelname
+        return "%s Event" % record.levelname
 
     def emit(self, record):
         if record.levelname not in self.queue:
@@ -41,7 +43,7 @@ class QueueSMTPHandler(SMTPHandler):
         queue       = dict(self.queue)
         self.queue  = {}
 
-        for records in queue.itervalues():
+        for records in six.itervalues(queue):
             msg     = ""
             record  = None
 
@@ -51,18 +53,22 @@ class QueueSMTPHandler(SMTPHandler):
             if not record:
                 continue
 
+            smtp = None
+
             try:
                 port = self.mailport
                 if not port:
                     port = smtplib.SMTP_PORT
                 smtp = smtplib.SMTP(self.mailhost, port)
-                msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
-                                self.fromaddr,
-                                join(self.toaddrs, ","),
-                                self.getSubject(record),
-                                formatdate(),
-                                msg)
+                msg = ("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" %
+                       (self.fromaddr,
+                        ','.join(self.toaddrs),
+                        self.getSubject(record),
+                        formatdate(),
+                        msg))
                 smtp.sendmail(self.fromaddr, self.toaddrs, msg)
-                smtp.quit()
-            except:
+            except Exception:
                 self.handleError(record)
+            finally:
+                if smtp:
+                    smtp.quit()

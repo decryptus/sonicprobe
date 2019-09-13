@@ -1,19 +1,7 @@
 # -*- coding: utf-8 -*-
-
-# Copyright (C) 2007-2013 Avencall
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>
+# Copyright 2007-2019 The Wazo Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.moresynchro"""
 
 """Supplementary synchronization primitives not provided by 'threading'
 
@@ -38,13 +26,10 @@ Copyright (C) 2007-2010  Avencall
 
 """
 
-__version__ = "$Revision$ $Date$"
-
 import time
-import thread
 import threading
 
-class RWLock:
+class RWLock(object): # pylint: disable=useless-object-inheritance
     """
     Simple RWLock with timeouts, without promotion.
 
@@ -159,7 +144,7 @@ class RWLock:
         """
         Release the currently held lock.
 
-        In case the current thread holds no lock, a thread.error
+        In case the current thread holds no lock, a RuntimeError
         is thrown.
         """
         me = threading.currentThread()
@@ -177,11 +162,11 @@ class RWLock:
                     if not self.__readers:
                         self.__condition.notifyAll()
             else:
-                raise thread.error, "release unlocked lock"
+                raise RuntimeError("release unlocked lock")
         finally:
             self.__condition.release()
 
-class ListLock:
+class ListLock(object): # pylint: disable=useless-object-inheritance
 
     "This class let us lock on a given object identifier in a set"
 
@@ -207,7 +192,7 @@ class ListLock:
             if elt not in self.locked:
                 self.locked[elt] = [me, 1]
                 return True
-            elif self.locked[elt][0] == me:
+            if self.locked[elt][0] == me:
                 self.locked[elt][1] += 1
                 return True
         finally:
@@ -216,7 +201,7 @@ class ListLock:
 
     def release(self, elt):
         """
-        elt must be already locked (if it is not a thread.error
+        elt must be already locked (if it is not a RuntimeError
         exception will be raised)
 
         The recursive counter for elt is decremented and when it
@@ -225,7 +210,7 @@ class ListLock:
         self.lock.acquire()
         try:
             if elt not in self.locked:
-                raise thread.error, "release unlocked lock for %s" % `elt`
+                raise RuntimeError("release unlocked lock for %r" % elt)
             self.locked[elt][1] -= 1
             if not self.locked[elt][1]:
                 del self.locked[elt]

@@ -1,19 +1,7 @@
 # -*- coding: utf-8 -*-
-
-# Copyright (C) 2007-2013 Avencall
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>
+# Copyright 2007-2019 The Wazo Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.urisup"""
 
 """Supplementary functions useful to play with URI - very very close to RFC 3986
 
@@ -21,9 +9,10 @@ Copyright (C) 2007-2010  Avencall
 
 """
 
-__version__ = "$Revision$ $Date$"
-
 import re
+import six
+
+from sonicprobe.libs.network import valid_ipv4_dotdec, valid_ipv6_address
 
 # Right from RFC 3986 section B
 RFC3986_MATCHER = re.compile(r"^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?").match
@@ -31,7 +20,6 @@ RFC3986_MATCHER = re.compile(r"^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?
 # Near RFC 3986 definitions
 ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 DIGIT = "0123456789"
-HEXDIG = "0123456789abcdefABCDEF"
 SCHEME_CHAR = ALPHA + DIGIT + "+-."
 GEN_DELIMS = ":/?#[]@"
 SUB_DELIMS = "!$&'()*+,;="
@@ -47,11 +35,15 @@ IPV_FUTURE_RE = r"v[\da-fA-F]+\.[" \
                 + re.escape(UNRESERVED + SUB_DELIMS + ":") \
                 + "]+"
 
-BYTES_VAL = ''.join(map(chr, range(0, 256)))
+BYTES_VAL = ''.join(map(chr, list(range(0, 256))))
 
 def __allow_to_encdct(charset):
-    enc_charset = set(iter(charset.replace('%','')))
-    return dict(((k in enc_charset) and (k, k) or (k, "%%%02X" % ord(k)) for k in BYTES_VAL))
+    return charset.replace('%','')
+
+def __maketrans(chars, charlist):
+    if six.PY3:
+        return (chars.maketrans('', '', charlist),)
+    return (chars, charlist)
 
 USER_ENCDCT = __allow_to_encdct(USER_CHAR)
 PASSWD_ENCDCT = __allow_to_encdct(PASSWD_CHAR)
@@ -60,8 +52,8 @@ P_ENCDCT = __allow_to_encdct(PCHAR)
 FRAG_ENCDCT = __allow_to_encdct(QUEFRAG_CHAR)
 # QUERY_ENCDCT is reserved for query encoding, that is spaces are not percent
 # encoded but translated into plus ' ' -> '+'
-QUERY_KEY_ENCDCT = __allow_to_encdct(QUEFRAG_CHAR.translate(BYTES_VAL, "&+=") + " ")
-QUERY_VAL_ENCDCT = __allow_to_encdct(QUEFRAG_CHAR.translate(BYTES_VAL, "&+") + " ")
+QUERY_KEY_ENCDCT = __allow_to_encdct(QUEFRAG_CHAR.translate(*__maketrans(BYTES_VAL, "&+=")) + " ")
+QUERY_VAL_ENCDCT = __allow_to_encdct(QUEFRAG_CHAR.translate(*__maketrans(BYTES_VAL, "&+")) + " ")
 
 # Host type alternatives:
 HOST_IP_LITERAL = 1
@@ -81,83 +73,14 @@ AUTHORITY_HOST = 2
 AUTHORITY_PORT = 3
 
 def __all_in(s, charset):
-    if not isinstance(s, unicode):
+    if not isinstance(s, six.text_type):
         s = str(s)
     else:
-        s = s.encode('utf8')
-    return not s.translate(BYTES_VAL, charset)
+        s = six.ensure_str(s, 'utf8')
+    return not s.translate(*__maketrans(BYTES_VAL, charset))
 
 def __split_sz(s, n):
     return [s[b:b+n] for b in range(0, len(s), n)]
-
-def __valid_IPv4address(potential_ipv4):
-    if potential_ipv4[0] in (HEXDIG + "xX") and __all_in(potential_ipv4[1:], (HEXDIG + ".xX")):
-        s_ipv4 = potential_ipv4.split('.', 4)
-        if len(s_ipv4) == 4:
-            try:
-                for s in s_ipv4:
-                    i = int(s, 0)
-                    if i < 0 or i > 255:
-                        return False
-            except ValueError:
-                return False
-            return True
-    return False
-
-def __valid_h16(h16):
-    try:
-        i = int(h16, 16)
-        return i >= 0 and i <= 65535
-    except ValueError:
-        return False
-
-def __valid_rightIPv6(right_v6):
-    if right_v6 == '':
-        return 0
-    array_v6 = right_v6.split(':', 8)
-    if len(array_v6) > 8 \
-       or (len(array_v6) > 7 and ('.' in right_v6)) \
-       or (not __all_in(''.join(array_v6[:-1]), HEXDIG)):
-        return False
-    if '.' in array_v6[-1]:
-        if not __valid_IPv4address(array_v6[-1]):
-            return False
-        h16_count = 2
-        array_v6 = array_v6[:-1]
-    else:
-        h16_count = 0
-    for h16 in array_v6:
-        if not __valid_h16(h16):
-            return False
-    return h16_count + len(array_v6)
-
-def __valid_leftIPv6(left_v6):
-    if left_v6 == '':
-        return 0
-    array_v6 = left_v6.split(':', 7)
-    if len(array_v6) > 7 \
-       or (not __all_in(''.join(array_v6), HEXDIG)):
-        return False
-    for h16 in array_v6:
-        if not __valid_h16(h16):
-            return False
-    return len(array_v6)
-
-def __valid_IPv6address(potential_ipv6):
-    sep_pos = potential_ipv6.find("::")
-    sep_count = potential_ipv6.count("::")
-    if sep_pos < 0:
-        return __valid_rightIPv6(potential_ipv6) == 8
-    elif sep_count == 1:
-        right = __valid_rightIPv6(potential_ipv6[sep_pos+2:])
-        if right is False:
-            return False
-        left = __valid_leftIPv6(potential_ipv6[:sep_pos])
-        if left is False:
-            return False
-        return right + left <= 7
-    else:
-        return False
 
 def __valid_IPvFuture(potential_ipvf):
     return bool(re.match(IPV_FUTURE_RE + "$", potential_ipvf))
@@ -166,7 +89,7 @@ def __valid_IPLiteral(potential_ipliteral):
     if len(potential_ipliteral) < 2 or potential_ipliteral[0] != '[' \
        or potential_ipliteral[-1] != ']':
         return False
-    return __valid_IPv6address(potential_ipliteral[1:-1]) \
+    return valid_ipv6_address(potential_ipliteral[1:-1]) \
            or __valid_IPvFuture(potential_ipliteral[1:-1])
 
 def __valid_query(pquery_tuple):
@@ -211,8 +134,6 @@ class InvalidQueryError(InvalidURIError):
 class InvalidFragmentError(InvalidURIError):
     """Invalid content for the fragment part of an URI"""
 
-PERCENT_CODE_SUB = re.compile(r"\%[\da-fA-F][\da-fA-F]").sub
-
 def pct_decode(s):
     """
     Return the percent-decoded version of string s.
@@ -226,12 +147,8 @@ def pct_decode(s):
     """
     if s is None:
         return None
-    elif not isinstance(s, unicode):
-        s = str(s)
-    else:
-        s = s.encode('utf8')
 
-    return PERCENT_CODE_SUB(lambda mo: chr(int(mo.group(0)[1:], 16)), s)
+    return six.moves.urllib.parse.unquote(s)
 
 def pct_encode(s, encdct):
     """
@@ -246,12 +163,8 @@ def pct_encode(s, encdct):
     """
     if s is None:
         return None
-    elif not isinstance(s, unicode):
-        s = str(s)
-    else:
-        s = s.encode('utf8')
 
-    return ''.join(map(encdct.__getitem__, s))
+    return six.moves.urllib.parse.quote(s, safe = encdct)
 
 def query_elt_decode(s):
     """
@@ -263,6 +176,7 @@ def query_elt_decode(s):
     """
     if s is None:
         return None
+
     return pct_decode(s.replace('+', ' '))
 
 def query_elt_encode(s, encdct):
@@ -303,12 +217,11 @@ def host_type(host):
     """
     if not host:
         return HOST_REG_NAME
-    elif host[0] == '[':
+    if host[0] == '[':
         return HOST_IP_LITERAL
-    elif __valid_IPv4address(host):
+    if valid_ipv4_dotdec(host):
         return HOST_IPV4_ADDRESS
-    else:
-        return HOST_REG_NAME
+    return HOST_REG_NAME
 
 def split_authority(authority):
     """
@@ -353,12 +266,12 @@ def split_authority(authority):
     if hostport:
         if hostport[0] == '[':
             m = re.match(r"\[([\da-fA-F:\.]+|" + IPV_FUTURE_RE
-                                 + r")\](\:.*|)$", hostport)
+                         + r")\](\:.*|)$", hostport)
             if m:
                 host = '[' + m.group(1) + ']'
                 port = m.group(2)[1:]
             else:
-                raise InvalidIPLiteralError, "Highly invalid IP-literal detected in URI authority %r" % (authority,)
+                raise InvalidIPLiteralError("Highly invalid IP-literal detected in URI authority %r" % (authority,))
         elif ':' in hostport:
             host, port = hostport.split(':', 1)
         else:
@@ -379,7 +292,7 @@ def split_query(query):
     """
     def split_assignment(a):
         sa = a.split('=', 1)
-        return len(sa) == 2 and tuple(sa) or (sa[0], None)
+        return (tuple(sa) if len(sa) == 2 else (sa[0], None))
     assignments = query.split('&')
     return tuple([split_assignment(a) for a in assignments if a])
 
@@ -388,15 +301,15 @@ def unsplit_query(query):
     Create a query string using the tuple query with a format as the one
     returned by split_query()
     """
-    def unsplit_assignment((x, y)):
+    def unsplit_assignment(xxx_todo_changeme):
+        (x, y) = xxx_todo_changeme
         if (x is not None) and (y is not None):
             return x + '=' + y
-        elif x is not None:
+        if x is not None:
             return x
-        elif y is not None:
+        if y is not None:
             return '=' + y
-        else:
-            return ''
+        return ''
     return '&'.join(map(unsplit_assignment, query))
 
 def basic_urisplit(uri):
@@ -406,7 +319,7 @@ def basic_urisplit(uri):
     >>> basic_urisplit("scheme://authority/path?query#fragment")
     ('scheme', 'authority', '/path', 'query', 'fragment')
     """
-    p = RFC3986_MATCHER(uri).groups()
+    p = RFC3986_MATCHER(six.ensure_text(uri)).groups()
     return (p[1], p[3], p[4], p[6], p[8])
 
 def uri_split_tree(uri):
@@ -453,13 +366,31 @@ def uri_tree_normalize(uri_tree):
     sufficient) the classification switches of some URI parts according to
     the content of others.
     """
-    scheme, authority, path, query, fragment = uri_tree
-    if authority and (filter(bool, authority) == ()):
-        authority = None
-    if query:
-        query = filter(lambda (x, y): bool(x) or bool(y), query)
-    return (scheme or None, authority or None, path or None,
-            query or None, fragment or None)
+    scheme, authority, path, query_raw, fragment = uri_tree
+    query  = []
+    scheme = six.ensure_str(scheme) if scheme else None
+
+    if authority:
+        authority = [six.ensure_str(x) if bool(x) else x for x in authority]
+
+    path = six.ensure_str(path) if path else None
+
+    if query_raw:
+        for x in query_raw:
+            add = False
+            y   = list(x)
+            if bool(x[0]):
+                add = True
+                y[0] = six.ensure_str(x[0])
+            if bool(x[1]):
+                add = True
+                y[1] = six.ensure_str(x[1])
+            if add:
+                query.append(y)
+
+    fragment = six.ensure_str(fragment) if fragment else None
+
+    return (scheme, authority or None, path, query or None, fragment)
 
 def uri_tree_validate(uri_tree):
     """
@@ -493,34 +424,34 @@ def uri_tree_validate(uri_tree):
     scheme, authority, path, query, fragment = uri_tree
     if scheme:
         if not valid_scheme(scheme):
-            raise InvalidSchemeError, "Invalid scheme %r" % (scheme,)
+            raise InvalidSchemeError("Invalid scheme %r" % (scheme,))
     if authority:
         user, passwd, host, port = authority
         if user and not __all_in(user, USER_CHAR):
-            raise InvalidUserError, "Invalid user %r" % (user,)
+            raise InvalidUserError("Invalid user %r" % (user,))
         if passwd and not __all_in(passwd, PASSWD_CHAR):
-            raise InvalidPasswdError, "Invalid passwd %r" % (passwd,)
+            raise InvalidPasswdError("Invalid passwd %r" % (passwd,))
         if host:
             type_host = host_type(host)
             if type_host == HOST_REG_NAME:
                 if not __all_in(host, REG_NAME_CHAR):
-                    raise InvalidRegNameError, "Invalid reg-name %r" % (host,)
+                    raise InvalidRegNameError("Invalid reg-name %r" % (host,))
             elif type_host == HOST_IP_LITERAL:
                 if not __valid_IPLiteral(host):
-                    raise InvalidIPLiteralError, "Invalid IP-literal %r" % (host,)
+                    raise InvalidIPLiteralError("Invalid IP-literal %r" % (host,))
         if port and not __all_in(port, DIGIT):
-            raise InvalidPortError, "Invalid port %r" % (port,)
+            raise InvalidPortError("Invalid port %r" % (port,))
     if path:
         if not __all_in(path, PCHAR):
-            raise InvalidPathError, "Invalid path %r - invalid character detected" % (path,)
+            raise InvalidPathError("Invalid path %r - invalid character detected" % (path,))
         if authority and path[0] != '/':
-            raise InvalidPathError, "Invalid path %r - non-absolute path can't be used with an authority" % (path,)
+            raise InvalidPathError("Invalid path %r - non-absolute path can't be used with an authority" % (path,))
         if (not authority) and (not scheme) and (':' in path.split('/', 1)[0]):
-            raise InvalidPathError, "Invalid path %r - path-noscheme can't have a ':' if no '/' before" % (path,)
+            raise InvalidPathError("Invalid path %r - path-noscheme can't have a ':' if no '/' before" % (path,))
     if query and (not __valid_query(query)):
-        raise InvalidQueryError, "Invalid splitted query tuple %r" % (query,)
+        raise InvalidQueryError("Invalid splitted query tuple %r" % (query,))
     if fragment and (not __all_in(fragment, QUEFRAG_CHAR)):
-        raise InvalidFragmentError, "Invalid fragment %r" % (fragment,)
+        raise InvalidFragmentError("Invalid fragment %r" % (fragment,))
     return uri_tree
 
 def uri_tree_decode(uri_tree):
@@ -553,14 +484,14 @@ def uri_tree_decode(uri_tree):
 def uri_help_split(uri):
     """
     Return uri_tree_decode(
-                    uri_tree_validate(
-                            uri_tree_normalize(
-                                    uri_split_tree(uri))))
+        uri_tree_validate(
+            uri_tree_normalize(
+                uri_split_tree(uri))))
     """
     return uri_tree_decode(
-                    uri_tree_validate(
-                            uri_tree_normalize(
-                                    uri_split_tree(uri))))
+        uri_tree_validate(
+            uri_tree_normalize(
+                uri_split_tree(uri))))
 
 def uri_tree_precode_check(uri_tree, type_host = HOST_REG_NAME):
     """
@@ -570,20 +501,20 @@ def uri_tree_precode_check(uri_tree, type_host = HOST_REG_NAME):
     scheme, authority, path, query, fragment = uri_tree # pylint: disable-msg=W0612
     if scheme:
         if not valid_scheme(scheme):
-            raise InvalidSchemeError, "Invalid scheme %r" % (scheme,)
+            raise InvalidSchemeError("Invalid scheme %r" % (scheme,))
     if authority:
         user, passwd, host, port = authority # pylint: disable-msg=W0612
         if port and not __all_in(port, DIGIT):
-            raise InvalidPortError, "Invalid port %r" % (port,)
+            raise InvalidPortError("Invalid port %r" % (port,))
         if type_host == HOST_IP_LITERAL:
             if host and (not __valid_IPLiteral(host)):
-                raise InvalidIPLiteralError, "Invalid IP-literal %r" % (host,)
+                raise InvalidIPLiteralError("Invalid IP-literal %r" % (host,))
         elif type_host == HOST_IPV4_ADDRESS:
-            if host and (not __valid_IPv4address(host)):
-                raise InvalidIPv4addressError, "Invalid IPv4address %r" % (host,)
+            if host and (not valid_ipv4_dotdec(host)):
+                raise InvalidIPv4addressError("Invalid IPv4address %r" % (host,))
     if path:
         if authority and path[0] != '/':
-            raise InvalidPathError, "Invalid path %r - non-absolute path can't be used with an authority" % (path,)
+            raise InvalidPathError("Invalid path %r - non-absolute path can't be used with an authority" % (path,))
     return uri_tree
 
 def uri_tree_encode(uri_tree, type_host = HOST_REG_NAME):
@@ -599,7 +530,7 @@ def uri_tree_encode(uri_tree, type_host = HOST_REG_NAME):
             passwd = pct_encode(passwd, PASSWD_ENCDCT)
         if host and type_host == HOST_REG_NAME:
             host = pct_encode(host, REG_NAME_ENCDCT)
-        if isinstance(port, (int, long)):
+        if isinstance(port, six.integer_types):
             port = str(port)
         authority = (user, passwd, host, port)
     if path:
@@ -669,14 +600,14 @@ def uri_unsplit_tree(uri_tree):
 def uri_help_unsplit(uri_tree):
     """
     Return uri_unsplit_tree(
-                   uri_tree_encode(
-                           uri_tree_precode_check(
-                                   uri_tree_normalize(uri_tree))))
+        uri_tree_encode(
+            uri_tree_precode_check(
+                uri_tree_normalize(uri_tree))))
     """
     return uri_unsplit_tree(
-                   uri_tree_encode(
-                           uri_tree_precode_check(
-                                   uri_tree_normalize(uri_tree))))
+        uri_tree_encode(
+            uri_tree_precode_check(
+                uri_tree_normalize(uri_tree))))
 
 def _test():
     import doctest
@@ -689,6 +620,7 @@ if __name__ == "__main__":
 # TODO: write more tests
 #
 # ex: ('http', ('xilun:/?#[]@!$&\'"()*+,;=-._~%:@/?% ', 'kikoolol/?#[]@!$&\'"()*+,;=-._~%:@/?% ', 'www./?#[]@!$&\'"()*+,;=-._~%:@/? %xivo.fr', '8080'), '/kikoololerie//?#[]@!$&\'"()*+,;=-. _~%:@/?%', (('k1/?#[]@!$&\'"()*+,;=-._~%:@/?% ', 'v1/?#[]@!$&\'"()*+,;=-._~%:@/?% '), ('k2/?#[]@!$&\'"()*+,;=-._~%:@/?% ', 'v2/?#[]@!$&\'"()*+,;=-._~%:@/?% ')), 'foobar2000/?#[]@!$&\'"()*+,;=-._~%:@/?% ')
+#     -> "http://xilun%3A%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25%3A%40%2F%3F%25%20:kikoolol%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25:%40%2F%3F%25%20@www.%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25%3A%40%2F%3F%20%25xivo.fr:8080/kikoololerie//%3F%23%5B%5D@!$&'%22()*+,;=-.%20_~%25:@/%3F%25?k1/?%23%5B%5D@!$%26'%22()*%2B,;%3D-._~%25:@/?%25+=v1/?%23%5B%5D@!$%26'%22()*%2B,;=-._~%25:@/?%25+&k2/?%23%5B%5D@!$%26'%22()*%2B,;%3D-._~%25:@/?%25+=v2/?%23%5B%5D@!$%26'%22()*%2B,;=-._~%25:@/?%25+#foobar2000/?%23%5B%5D@!$&'%22()*+,;=-._~%25:@/?%25%20"
 #     -> "http://xilun%3A%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25%3A%40%2F%3F%25%20:kikoolol%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25:%40%2F%3F%25%20@www.%2F%3F%23%5B%5D%40!$&'%22()*+,;=-._~%25%3A%40%2F%3F%20%25xivo.fr:8080/kikoololerie//%3F%23%5B%5D@!$&'%22()*+,;=-.%20_~%25:@/%3F%25?k1/?%23%5B%5D@!$%26'%22()*%2B,;%3D-._~%25:@/?%25+=v1/?%23%5B%5D@!$%26'%22()*%2B,;=-._~%25:@/?%25+&k2/?%23%5B%5D@!$%26'%22()*%2B,;%3D-._~%25:@/?%25+=v2/?%23%5B%5D@!$%26'%22()*%2B,;=-._~%25:@/?%25+#foobar2000/?%23%5B%5D@!$&'%22()*+,;=-._~%25:@/?%25%20"
 #     (None, None, ':blabla', None, None)
 #     (None, None, '//foobar', None, None)

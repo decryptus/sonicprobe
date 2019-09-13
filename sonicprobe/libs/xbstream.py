@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-""" xbstream library """
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.xbstream"""
 
 import copy
 import errno
@@ -22,14 +24,14 @@ CHUNK_TYPE_OFFSET         = XB_STREAM_CHUNK_MAGIC_LEN + 1
 XB_STREAM_MIN_CHUNK_SIZE  = (10 * 1024 * 1024)
 
 
-class XBStreamDefaultCallbacks(object):
+class XBStreamDefaultCallbacks(object): # pylint: disable=useless-object-inheritance,too-few-public-methods
     def __init__(self, read = sys.stdin.read, write = sys.stdout.write, tx = None):
         self.read  = read
         self.write = write
         self.tx    = tx
 
 
-class XBStreamObject(object):
+class XBStreamObject(object): # pylint: disable=useless-object-inheritance
     def __init__(self):
         self.buffer         = ""
         self.buffer_size    = 0
@@ -52,11 +54,11 @@ class XBStreamObject(object):
         self.payload = None
 
 
-class XBStreamRead(object):
+class XBStreamRead(object): # pylint: disable=useless-object-inheritance
     def __init__(self, callbacks = None, set_payload = False, xb_obj = None):
         self.callbacks        = callbacks or XBStreamDefaultCallbacks()
-        self.FILE_CHUNK_COUNT = {}
-        self.EOF              = False
+        self.FILE_CHUNK_COUNT = {} # pylint: disable=invalid-name
+        self.EOF              = False # pylint: disable=invalid-name
 
         if not hasattr(self.callbacks, 'read'):
             raise AttributeError("missing read callback")
@@ -103,8 +105,9 @@ class XBStreamRead(object):
                 try:
                     x = self.callbacks.read(self.xb_obj.chunk_size - self.xb_obj.filled_size)
                     break
-                except errno.EAGAIN:
-                    continue
+                except IOError as e:
+                    if e.errno == errno.EAGAIN:
+                        continue
 
             if x:
                 self.xb_obj.buffer      += x

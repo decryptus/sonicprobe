@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+# Copyright 2008-2019 The Wazo Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.xys"""
+
 """XIVO YAML Schema - v0.01
 
-Copyright (C) 2008-2010  Proformatique
+Copyright (C) 2008-2010 Avencall
 
 The basic idea behind XYS is to write a schema as much as possible as
 you would write documents that are valid by this schema.
@@ -137,33 +141,15 @@ to the call to the validation function.
 
 """
 
-__version__ = "$Revision$ $Date$"
-__license__ = """
-    Copyright (C) 2008-2010  Proformatique
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
-
-from sonicprobe import helpers
-from sonicprobe.libs import UpCollections # pylint: disable-msg=W0611
-
 from collections import namedtuple
+
 import copy
 import re
-import yaml
 import logging
+import yaml
+import six
+
+from sonicprobe import helpers
 
 
 LOG = logging.getLogger("sonicprobe.xys") # pylint: disable-msg=C0103
@@ -182,7 +168,7 @@ RE_MATCH_TYPE           = type(re.compile('').match)
 RE_MATCH_CSTR           = re.compile(r'^(.+?)' +
                                      r'(?:([\?\!\+\*])(?:\[(?:([0-9]+)|([0-9]*),([0-9]*))\]|([\*\+\?]))?)?' +
                                      r'(?:\|((?:(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])' +
-                                         r'(?:,(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])*))?' +
+                                     r'(?:,(?:[a-zA-Z0-9_][a-zA-Z0-9\-_\.]*)?[a-zA-Z0-9_])*))?' +
                                      r'(\-)?$').match
 RE_MATCH_VALIDATOR_CSTR = re.compile(r'^(?:\((?:([0-9]+)|([0-9]*),([0-9]*))\)\s+)?\s*(.+)$').match
 
@@ -192,21 +178,23 @@ _modifiers      = {}
 _regexs         = {}
 
 
-class Any(object): pass
+class Any(object): # pylint: disable=too-few-public-methods,useless-object-inheritance
+    pass
 
-class Scalar(object): pass
+class Scalar(object): # pylint: disable=too-few-public-methods,useless-object-inheritance
+    pass
 
-def construct_yaml_any(loader, node):
+def construct_yaml_any(loader, node): # pylint: disable=unused-argument
     return Any()
 
-def construct_yaml_scalar(loader, node):
+def construct_yaml_scalar(loader, node): # pylint: disable=unused-argument
     return Scalar()
 
 yaml.add_constructor('tag:yaml.org,2002:any', construct_yaml_any)
 yaml.add_constructor('tag:yaml.org,2002:scalar', construct_yaml_scalar)
 
 
-class ContructorValidatorNode(object):
+class ContructorValidatorNode(object): # pylint: disable=useless-object-inheritance
     def __init__(self, tag, base_tag, validator, mode = 'generic', xmin = None, xmax = None):
         self.tag       = tag
         self.base_tag  = base_tag
@@ -240,15 +228,15 @@ class ContructorValidatorNode(object):
         return m.group(4)
 
     def __call__(self, loader, node):
-        if isinstance(node.value, basestring):
+        if isinstance(node.value, six.string_types):
             node.value = self._parser(node.value)
 
         return ValidatorNode(
-                 _construct_node(loader, node, self.base_tag),
-                 self.validator,
-                 self.mode,
-                 self.min,
-                 self.max)
+            _construct_node(loader, node, self.base_tag),
+            self.validator,
+            self.mode,
+            self.min,
+            self.max)
 
 
 def _construct_node(loader, node, base_tag):
@@ -256,7 +244,7 @@ def _construct_node(loader, node, base_tag):
     node = copy.copy(node) # bypass YAML anti recursion
     best_tag = base_tag
     best_fit = 0
-    for key, val in loader.DEFAULT_TAGS.iteritems():
+    for key, val in six.iteritems(loader.DEFAULT_TAGS):
         lenk = len(key)
         if lenk <= best_fit:
             continue
@@ -271,22 +259,21 @@ def _maybe_int(s):
     "Coerces to int if starts with a digit else return s"
     if s and s[0] in "0123456789":
         return int(s)
-    else:
-        return s
+    return s
 
 
 def _split_params(tag_prefix, tag_suffix):
     "Split comma-separated tag_suffix[:-1] and map with _maybe_int"
     if tag_suffix[-1:] != ')':
-        raise ValueError, "unbalanced parenthesis in type %s%s" % (tag_prefix, tag_suffix)
-    return map(_maybe_int, tag_suffix[:-1].split(','))
+        raise ValueError("unbalanced parenthesis in type %s%s" % (tag_prefix, tag_suffix))
+    return list(map(_maybe_int, tag_suffix[:-1].split(',')))
 
 
 def add_callback(name, value):
     if not hasattr(value, '__call__'):
-        raise TypeError, "%r is not callable" % value
+        raise TypeError("%r is not callable" % value)
     if name in _callbacks:
-        raise ValueError, "%s is already registered" % name
+        raise ValueError("%s is already registered" % name)
 
     _callbacks[name] = value
 
@@ -295,28 +282,28 @@ def add_list(name, value):
     try:
         iter(value)
     except TypeError:
-        raise TypeError, "%r is not iterable" % value
+        raise TypeError("%r is not iterable" % value)
 
     if name in _lists:
-        raise ValueError, "%s is already registered" % name
+        raise ValueError("%s is already registered" % name)
 
     _lists[name] = value
 
 
 def add_modifier(name, value):
     if not hasattr(value, '__call__'):
-        raise TypeError, "%r is not callable" % value
+        raise TypeError("%r is not callable" % value)
     if name in _modifiers:
-        raise ValueError, "%s is already registered" % name
+        raise ValueError("%s is already registered" % name)
 
     _modifiers[name] = value
 
 
 def add_regex(name, value):
     if not isinstance(value, RE_MATCH_TYPE):
-        raise TypeError, "%r is not a match regep" % value
+        raise TypeError("%r is not a match regep" % value)
     if name in _regexs:
-        raise ValueError, "%s is already registered" % name
+        raise ValueError("%s is already registered" % name)
 
     _regexs[name] = value
 
@@ -335,7 +322,7 @@ def add_validator(validator, base_tag, tag=None):
     if not tag:
         tag = u'!~' + validator.__name__
 
-    for xid, opts in _VALIDATOR_MODES.iteritems():
+    for xid, opts in six.iteritems(_VALIDATOR_MODES):
         mtag = "%s%s" % (tag, xid)
 
         yaml.add_constructor(mtag,
@@ -446,7 +433,7 @@ def prefixedDec(nstr, schema):
     return True
 
 
-def isBool(nstr, schema):
+def isBool(nstr, schema): # pylint: disable=unused-argument
     """
     !~~isBool
         '0', '1', False, True
@@ -454,13 +441,14 @@ def isBool(nstr, schema):
     return nstr in ('0', '1', False, True)
 
 
-def isFloat(nstr, schema):
+def isFloat(nstr, schema): # pylint: disable=unused-argument
     """
     !~~isFloat
     """
-    if isinstance(nstr, (float, int, long)):
+    if isinstance(nstr, (float, six.integer_types)):
         return True
-    elif not isinstance(nstr, basestring):
+
+    if not isinstance(nstr, six.string_types):
         return False
 
     try:
@@ -471,28 +459,28 @@ def isFloat(nstr, schema):
     return True
 
 
-def digit(nstr, schema):
+def digit(nstr, schema): # pylint: disable=unused-argument
     """
     !~~digit
         '0123456789'.isdigit() or 123456789
     """
     if isinstance(nstr, int):
         nstr = str(nstr)
-    elif not isinstance(nstr, basestring):
+    elif not isinstance(nstr, six.string_types):
         return False
 
     return nstr.isdigit()
 
 
-def uint(nstr, schema):
+def uint(nstr, schema): # pylint: disable=unused-argument
     """
     !~~uint
     """
-    if isinstance(nstr, basestring):
+    if isinstance(nstr, six.string_types):
         if not nstr.isdigit():
             return False
-        nstr = long(nstr)
-    elif not isinstance(nstr, (int, long)):
+        nstr = int(nstr)
+    elif not isinstance(nstr, six.integer_types):
         return False
 
     return nstr > 0
@@ -505,7 +493,7 @@ def callback(val, schema, name = None): # pylint: disable-msg=W0613
     if name is None:
         name = schema
 
-    if not _callbacks.has_key(name):
+    if name not in _callbacks:
         return False
 
     return _callbacks[name](val)
@@ -518,7 +506,7 @@ def isIn(val, schema, name = None): # pylint: disable-msg=W0613
     if name is None:
         name = schema
 
-    if not _lists.has_key(name):
+    if name not in _lists:
         return False
 
     try:
@@ -534,7 +522,7 @@ def regex(val, schema, name = None): # pylint: disable-msg=W0613
     if name is None:
         name = schema
 
-    if not _regexs.has_key(name):
+    if name not in _regexs:
         return False
 
     try:
@@ -571,7 +559,7 @@ def _qualify_map(key, content):
     _value_ is decorated in an Optional/OptionalNull/Mandatory tuple.
     This function undo the decoration when necessary.
     """
-    if not isinstance(key, basestring):
+    if not isinstance(key, six.string_types):
         return key, content
 
     min_len  = None
@@ -580,7 +568,7 @@ def _qualify_map(key, content):
     m        = RE_MATCH_CSTR(key)
 
     if not m:
-        raise KeyError("Unable to parse, invalid key: %r" % key)
+        raise KeyError("unable to parse, invalid key: %r" % key)
 
     if m.group(3) is not None:
         min_len = max_len = int(m.group(3))
@@ -607,12 +595,14 @@ def _qualify_map(key, content):
 
     if m.group(2) == '*':
         return m.group(1), OptionalNull(content, min_len, max_len, modifier)
-    elif m.group(2) == '?':
+
+    if m.group(2) == '?':
         return m.group(1), Optional(content, min_len, max_len, modifier)
-    elif m.group(2) == '+':
+
+    if m.group(2) == '+':
         return m.group(1), Mandatory(content, min_len, max_len, modifier)
-    else:
-        return m.group(1), Mandatory(content, min_len, max_len, modifier)
+
+    return m.group(1), Mandatory(content, min_len, max_len, modifier)
 
 
 def _transschema(x):
@@ -622,12 +612,14 @@ def _transschema(x):
     """
     if isinstance(x, tuple):
         return x.__class__(_transschema(x[0]), *x[1:])
-    elif isinstance(x, dict):
-        return dict((_qualify_map(key, _transschema(val)) for key, val in x.iteritems()))
-    elif isinstance(x, list):
-        return map(_transschema, x)
-    else:
-        return x
+
+    if isinstance(x, dict):
+        return dict((_qualify_map(key, _transschema(val)) for key, val in six.iteritems(x)))
+
+    if isinstance(x, list):
+        return list(map(_transschema, x))
+
+    return x
 
 
 def _valid_len(key, value, min_len, max_len):
@@ -661,6 +653,201 @@ def load(src):
 
 Nothing = object()
 
+def _validate_node(document, schema, log_qualifier = True):
+    if not validate(document, schema.content):
+        return False
+    if not schema.validator(document, schema.content):
+        if log_qualifier:
+            LOG.error("%r failed to validate with qualifier %s",
+                      document,
+                      schema.validator.__name__)
+        return False
+    return True
+
+def _validate_dict(document, schema):
+    if not isinstance(document, dict):
+        LOG.error("wanted a dictionary, got a %s", document.__class__.__name__)
+        return False
+
+    generic = []
+    optional = {}
+    optionalnull = {}
+    mandatory = []
+
+    for key, schema_val in six.iteritems(schema):
+        if isinstance(key, ValidatorNode):
+            if key.mode == 'mandatory':
+                mandatory.append((key, schema_val))
+            else:
+                generic.append((key, schema_val))
+        elif isinstance(schema_val, Optional):
+            optional[key] = schema_val
+        elif isinstance(schema_val, OptionalNull):
+            optional[key] = schema_val
+            optionalnull[key] = True
+        else:
+            mandatory.append((key, schema_val))
+
+    doc_copy = document.copy()
+
+    for key, schema_val in mandatory:
+        if isinstance(key, ValidatorNode):
+            nb = 0
+            rm = []
+            for doc_key, doc_val in six.iteritems(doc_copy):
+                if not validate(doc_key, key, False):
+                    continue
+
+                nb += 1
+
+                if validate(doc_val, schema_val):
+                    rm.append(doc_key)
+                else:
+                    return False
+
+            if nb == 0:
+                LOG.error("missing document %r for qualifier: %r",
+                          key.content,
+                          key.validator.__name__)
+                return False
+
+            if key.min is not None and nb < key.min:
+                LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)",
+                          key.content,
+                          key.validator.__name__,
+                          key.min,
+                          nb)
+                return False
+
+            if key.max is not None and nb > key.max:
+                LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)",
+                          key.content,
+                          key.validator.__name__,
+                          key.max,
+                          nb)
+                return False
+
+            for x in rm:
+                del doc_copy[x]
+            continue
+
+        doc_val = doc_copy.get(key, Nothing)
+        if doc_val is Nothing:
+            LOG.error("missing key %r in document", key)
+            return False
+
+        if helpers.is_scalar(schema_val):
+            if not validate(doc_val, schema_val):
+                return False
+            del doc_copy[key]
+            continue
+
+        if schema_val.modifier:
+            for modname in schema_val.modifier:
+                if modname in _modifiers:
+                    document[key] = _modifiers[modname](document[key])
+                    doc_val = _modifiers[modname](doc_val)
+                elif hasattr(doc_val, modname):
+                    document[key] = getattr(document[key], modname)()
+                    doc_val = getattr(doc_val, modname)()
+
+        if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
+            return False
+
+        if not validate(doc_val, schema_val.content):
+            return False
+
+        del doc_copy[key]
+
+    for key, schema_val in generic:
+        nb = 0
+        rm = []
+
+        for doc_key, doc_val in six.iteritems(doc_copy):
+            if not validate(doc_key, key, False):
+                continue
+
+            nb += 1
+
+            if validate(doc_val, schema_val):
+                rm.append(doc_key)
+            else:
+                return False
+
+        if key.min is not None and nb < key.min:
+            LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)",
+                      key.content,
+                      key.validator.__name__,
+                      key.min, nb)
+            return False
+
+        if key.max is not None and nb > key.max:
+            LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)",
+                      key.content,
+                      key.validator.__name__,
+                      key.max, nb)
+            return False
+
+        for x in rm:
+            del doc_copy[x]
+        continue
+
+    for key, doc_val in six.iteritems(doc_copy):
+        schema_val = optional.get(key, Nothing)
+        if schema_val is Nothing:
+            LOG.error("forbidden key %s in document", key)
+            return False
+
+        if key in optionalnull and doc_val is None:
+            continue
+
+        if schema_val.min_len == 0 and doc_val is "":
+            continue
+
+        if schema_val.modifier:
+            for modname in schema_val.modifier:
+                if modname in _modifiers:
+                    document[key] = _modifiers[modname](document[key])
+                    doc_val = _modifiers[modname](doc_val)
+                elif hasattr(doc_val, modname):
+                    document[key] = getattr(document[key], modname)()
+                    doc_val = getattr(doc_val, modname)()
+
+            if key in optionalnull and doc_val is None:
+                continue
+
+            if schema_val.min_len == 0 and doc_val is "":
+                continue
+
+        if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
+            return False
+
+        if not validate(doc_val, schema_val.content):
+            return False
+
+    return True
+
+def _validate_list(document, schema):
+    if not isinstance(document, list):
+        LOG.error("wanted a list, got a %s", document.__class__.__name__)
+        return False
+
+    for elt in document:
+        if len(schema) < 2:
+            if not validate(elt, schema[0]):
+                return False
+        elif isinstance(schema[0], dict):
+            tmp = {}
+            for x in schema:
+                for key, val in six.iteritems(x):
+                    tmp[key] = val
+            if not validate(elt, tmp):
+                return False
+        else:
+            if not validate(elt, schema[0]):
+                return False
+
+    return True
 
 # TODO: display the document path to errors, and other error message enhancements
 # TODO: allow error messages from validators
@@ -673,185 +860,57 @@ def validate(document, schema, log_qualifier = True):
     then False is returned.
     """
     if isinstance(schema, ValidatorNode):
-        if not validate(document, schema.content):
-            return False
-        if not schema.validator(document, schema.content):
-            if log_qualifier:
-                LOG.error("%r failed to validate with qualifier %s", document, schema.validator.__name__)
-            return False
+        return _validate_node(document, schema, log_qualifier)
+
+    if isinstance(schema, dict):
+        return _validate_dict(document, schema)
+
+    if isinstance(schema, list):
+        return _validate_list(document, schema)
+
+    if isinstance(schema, Any):
         return True
-    elif isinstance(schema, dict):
-        if not isinstance(document, dict):
-            LOG.error("wanted a dictionary, got a %s", document.__class__.__name__)
-            return False
-        generic = []
-        optional = {}
-        optionalnull = {}
-        mandatory = []
-        for key, schema_val in schema.iteritems():
-            if isinstance(key, ValidatorNode):
-                if key.mode == 'mandatory':
-                    mandatory.append((key, schema_val))
-                else:
-                    generic.append((key, schema_val))
-            elif isinstance(schema_val, Optional):
-                optional[key] = schema_val
-            elif isinstance(schema_val, OptionalNull):
-                optional[key] = schema_val
-                optionalnull[key] = True
-            else:
-                mandatory.append((key, schema_val))
 
-        doc_copy = document.copy()
-
-        for key, schema_val in mandatory:
-            if isinstance(key, ValidatorNode):
-                nb = 0
-                rm = []
-                for doc_key, doc_val in doc_copy.iteritems():
-                    if not validate(doc_key, key, False):
-                        continue
-
-                    nb += 1
-
-                    if validate(doc_val, schema_val):
-                        rm.append(doc_key)
-                    else:
-                        return False
-
-                if nb == 0:
-                    LOG.error("missing document %r for qualifier: %r", key.content, key.validator.__name__)
-                    return False
-                elif key.min is not None and nb < key.min:
-                    LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)", key.content, key.validator.__name__, key.min, nb)
-                    return False
-                elif key.max is not None and nb > key.max:
-                    LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)", key.content, key.validator.__name__, key.max, nb)
-                    return False
-                else:
-                    for x in rm:
-                        del doc_copy[x]
-                    continue
-
-            doc_val = doc_copy.get(key, Nothing)
-            if doc_val is Nothing:
-                LOG.error("missing key %r in document", key)
-                return False
-
-            if helpers.is_scalar(schema_val):
-                if not validate(doc_val, schema_val):
-                    return False
-                del doc_copy[key]
-                continue
-
-            if schema_val.modifier:
-                for modname in schema_val.modifier:
-                    if modname in _modifiers:
-                        document[key] = _modifiers[modname](document[key])
-                        doc_val = _modifiers[modname](doc_val)
-                    elif hasattr(doc_val, modname):
-                        document[key] = getattr(document[key], modname)()
-                        doc_val = getattr(doc_val, modname)()
-
-            if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
-                return False
-            if not validate(doc_val, schema_val.content):
-                return False
-            del doc_copy[key]
-
-        for key, schema_val in generic:
-            nb = 0
-            rm = []
-
-            for doc_key, doc_val in doc_copy.iteritems():
-                if not validate(doc_key, key, False):
-                    continue
-
-                nb += 1
-
-                if validate(doc_val, schema_val):
-                    rm.append(doc_key)
-                else:
-                    return False
-
-            if key.min is not None and nb < key.min:
-                LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)", key.content, key.validator.__name__, key.min, nb)
-                return False
-            elif key.max is not None and nb > key.max:
-                LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)", key.content, key.validator.__name__, key.max, nb)
-                return False
-            else:
-                for x in rm:
-                    del doc_copy[x]
-                continue
-
-        for key, doc_val in doc_copy.iteritems():
-            schema_val = optional.get(key, Nothing)
-            if schema_val is Nothing:
-                LOG.error("forbidden key %s in document", key)
-                return False
-            elif optionalnull.has_key(key) and doc_val is None:
-                continue
-            elif schema_val.min_len == 0 and doc_val is "":
-                continue
-
-            if schema_val.modifier:
-                for modname in schema_val.modifier:
-                    if modname in _modifiers:
-                        document[key] = _modifiers[modname](document[key])
-                        doc_val = _modifiers[modname](doc_val)
-                    elif hasattr(doc_val, modname):
-                        document[key] = getattr(document[key], modname)()
-                        doc_val = getattr(doc_val, modname)()
-                if optionalnull.has_key(key) and doc_val is None:
-                    continue
-                elif schema_val.min_len == 0 and doc_val is "":
-                    continue
-
-            if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
-                return False
-            if not validate(doc_val, schema_val.content):
-                return False
-        return True
-    elif isinstance(schema, list):
-        if not isinstance(document, list):
-            LOG.error("wanted a list, got a %s", document.__class__.__name__)
-        for elt in document:
-            # XXX: give a meaning when there are multiple element in a sequence of a schema?
-            if len(schema) < 2:
-                if not validate(elt, schema[0]):
-                    return False
-            elif isinstance(schema[0], dict):
-                tmp = {}
-                for x in schema:
-                    for key, val in x.iteritems():
-                        tmp[key] = val
-                if not validate(elt, tmp):
-                    return False
-            else:
-                if not validate(elt, schema[0]):
-                    return False
-        return True
-    elif isinstance(schema, Any):
-        return True
-    elif isinstance(schema, Scalar):
+    if isinstance(schema, Scalar):
         return helpers.is_scalar(document)
-    else: # scalar
-        if isinstance(schema, str):
-            schema = unicode(schema)
-        if isinstance(document, str):
-            document = unicode(document, 'utf8')
-        if schema.__class__ != document.__class__:
-            LOG.error("wanted a %s, got a %s", schema.__class__.__name__, document.__class__.__name__)
-            return False
-        return True
+
+    # scalar
+    if isinstance(schema, six.text_type):
+        schema = six.ensure_text(schema)
+    if isinstance(document, six.text_type):
+        document = six.ensure_text(document, 'utf8')
+    if schema.__class__ != document.__class__:
+        LOG.error("wanted a %s, got a %s",
+                  schema.__class__.__name__,
+                  document.__class__.__name__)
+        return False
+    return True
 
 
 __all__ = [
-        'validate', 'load',
-        'seqlen', 'between', 'startswith', 'prefixedDec', 'isBool', 'isFloat', 'digit', 'uint', 'callback', 'isIn', 'regex'
-        'add_callback', 'add_list', 'add_modifier', 'add_regex', 'add_validator', 'add_parameterized_validator',
-        'ValidatorNode', 'Optional', 'OptionalNull', 'Mandatory',
+    'validate',
+    'load',
+    'seqlen',
+    'between',
+    'startswith',
+    'prefixedDec',
+    'isBool',
+    'isFloat',
+    'digit',
+    'uint',
+    'callback',
+    'isIn',
+    'regex',
+    'add_callback',
+    'add_list',
+    'add_modifier',
+    'add_regex',
+    'add_validator',
+    'add_parameterized_validator',
+    'ValidatorNode',
+    'Optional',
+    'OptionalNull',
+    'Mandatory',
 ]
 
 

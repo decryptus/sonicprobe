@@ -1,24 +1,7 @@
 # -*- coding: utf-8 -*-
-"""keystore"""
-
-__author__  = "Adrien DELLE CAVE <adc@doowan.net>"
-__license__ = """
-    Copyright (C) 2017  doowan
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA..
-"""
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.keystore"""
 
 import gc
 import logging
@@ -28,7 +11,7 @@ import threading
 LOG = logging.getLogger('sonicprobe.keystore')
 
 
-class Keystore(object):
+class Keystore(object): # pylint: disable=useless-object-inheritance
     def __init__(self, timeout = 10):
         self.__data     = {}
         self.__lock     = {}
@@ -46,13 +29,13 @@ class Keystore(object):
         return already_locked
 
     def _unlock(self, already_locked):
-         if not already_locked and self.__locked == self.__thread:
+        if not already_locked and self.__locked == self.__thread:
             self.try_unlock()
 
     def add(self, name, lock = False):
         already_locked = self._lock()
 
-        if not self.__data.has_key(name):
+        if name not in self.__data:
             self.__lock[name]       = threading.RLock()
             if lock:
                 self.__lock[name].acquire()
@@ -68,7 +51,7 @@ class Keystore(object):
     def get(self, name, key, default = None, lock = False):
         already_locked = self._lock()
 
-        if not self.__lock.has_key(name):
+        if name not in self.__lock:
             self._unlock(already_locked)
             return default
 
@@ -85,7 +68,7 @@ class Keystore(object):
     def set(self, name, key, value = None, lock = False):
         already_locked = self._lock()
 
-        if not self.__lock.has_key(name):
+        if name not in self.__lock:
             self.add(name)
         if lock:
             self.__lock[name].acquire()
@@ -101,12 +84,12 @@ class Keystore(object):
     def exists(self, name, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
-        r = self.__data.has_key(name)
+        r = name in self.__data
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -116,7 +99,7 @@ class Keystore(object):
     def iteritems(self, name):
         already_locked = self._lock()
 
-        for item in self.__data[name].items():
+        for item in list(self.__data[name].items()):
             yield item
 
         self._unlock(already_locked)
@@ -124,7 +107,7 @@ class Keystore(object):
     def iterkeys(self, name):
         already_locked = self._lock()
 
-        for key in self.__data[name].keys():
+        for key in list(self.__data[name].keys()):
             yield key
 
         self._unlock(already_locked)
@@ -132,7 +115,7 @@ class Keystore(object):
     def itervalues(self, name):
         already_locked = self._lock()
 
-        for value in self.__data[name].values():
+        for value in list(self.__data[name].values()):
             yield value
 
         self._unlock(already_locked)
@@ -140,12 +123,12 @@ class Keystore(object):
     def has_key(self, name, key, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
-        r = self.__data[name].has_key(key)
+        r = key in self.__data[name]
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -155,18 +138,18 @@ class Keystore(object):
     def delete(self, name, lock = True):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
-        if self.__data.has_key(name):
+        if name in self.__data:
             del self.__data[name]
-        if self.__updated.has_key(name):
+        if name in self.__updated:
             del self.__updated[name]
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
-        if self.__lock.has_key(name):
+        if name in self.__lock:
             del self.__lock[name]
 
         self._unlock(already_locked)
@@ -179,7 +162,7 @@ class Keystore(object):
 
         if lock:
             self.__lock[name].acquire()
-        if self.__data.has_key(key):
+        if key in self.__data:
             del self.__data[name][key]
         self.__updated[name] = time.time()
         if lock:
@@ -192,10 +175,10 @@ class Keystore(object):
     def updated_at(self, name, default = None, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
         r = self.__updated.get(name, default)
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -205,10 +188,10 @@ class Keystore(object):
     def updated_delta(self, name, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
         r = time.time() - self.__updated[name]
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -218,32 +201,32 @@ class Keystore(object):
     def expired(self, name, expire, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
         try:
-            if not self.__updated.has_key(name):
+            if name not in self.__updated:
                 return None
-            elif expire < 0:
+            if expire < 0:
                 return False
             return self.updated_delta(name) > expire
         finally:
-            if lock and self.__lock.has_key(name):
+            if lock and name in self.__lock:
                 self.__lock[name].release()
             self._unlock(already_locked)
 
     def purge(self, name, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
-        if self.__data.has_key(name):
+        if name in self.__data:
             self.__data[name]       = {}
-        if self.__updated.has_key(name):
+        if name in self.__updated:
             self.__updated[name]    = 0
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -253,15 +236,15 @@ class Keystore(object):
     def reset(self, name, lock = False):
         already_locked = self._lock()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].acquire()
 
-        if self.__data.has_key(name):
+        if name in self.__data:
             self.__data[name]       = {}
-        if self.__updated.has_key(name):
+        if name in self.__updated:
             self.__updated[name]    = time.time()
 
-        if lock and self.__lock.has_key(name):
+        if lock and name in self.__lock:
             self.__lock[name].release()
 
         self._unlock(already_locked)
@@ -298,16 +281,16 @@ class Keystore(object):
 
         try:
             while True:
-                if not self.__lock.has_key(name):
+                if name not in self.__lock:
                     return None
-                elif self.__lock[name].acquire(False):
+                if self.__lock[name].acquire(False):
                     return True
-                elif timeout is not None:
-                    remaining = endtime - time.time()
-                    if remaining <= 0:
-                        return 0
-                else:
+                if timeout is None:
                     return False
+
+                remaining = endtime - time.time()
+                if remaining <= 0:
+                    return 0
         except KeyError:
             if not exists:
                 raise
@@ -316,7 +299,7 @@ class Keystore(object):
             self._unlock(already_locked)
 
     def release(self, name):
-        if self.__lock.has_key(name):
+        if name in self.__lock:
             self.__lock[name].release()
         return self
 
@@ -331,7 +314,7 @@ class Keystore(object):
     def list(self):
         already_locked = self._lock()
 
-        r = self.__data.keys()
+        r = list(self.__data.keys())
 
         self._unlock(already_locked)
 
@@ -342,6 +325,8 @@ class Keystore(object):
             self.__locked = threading.currentThread()
             return True
 
+        return None
+
     def try_lock(self, timeout = None):
         if timeout is not None:
             endtime = time.time() + timeout
@@ -350,12 +335,12 @@ class Keystore(object):
             if self.__me.acquire(False):
                 self.__locked = threading.currentThread()
                 return True
-            elif timeout is not None:
-                remaining = endtime - time.time()
-                if remaining <= 0:
-                    return 0
-            else:
+            if timeout is None:
                 return False
+
+            remaining = endtime - time.time()
+            if remaining <= 0:
+                return 0
 
     def try_unlock(self):
         try:

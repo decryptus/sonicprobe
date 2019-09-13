@@ -1,13 +1,20 @@
+# -*- coding: utf-8 -*-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.sp_serial"""
+
 import logging
-import serial
 import socket
 
 from time import sleep
-from sonicprobe.xmodem import XMODEM
 
-LOG                 = logging.getLogger("sp_serial.%s" % __name__)
+import serial
+from xmodem import XMODEM
 
-class SPSerial(object):
+
+LOG = logging.getLogger("sp_serial.%s" % __name__)
+
+class SPSerial(object): # pylint: disable=useless-object-inheritance
     def __init__(self,
                  port               = None,
                  baudrate           = 9600,
@@ -25,16 +32,16 @@ class SPSerial(object):
             LOG.debug("Using serial port %r", port)
             self.mode = 'Serial'
             self.serial = serial.Serial(
-                       port         = port,
-                       baudrate     = baudrate,
-                       bytesize     = bytesize,
-                       parity       = parity,
-                       stopbits     = stopbits,
-                       timeout      = timeout,
-                       xonxoff      = xonxoff,
-                       rtscts       = rtscts,
-                       writeTimeout = writeTimeout,
-                       dsrdtr       = dsrdtr)
+                port         = port,
+                baudrate     = baudrate,
+                bytesize     = bytesize,
+                parity       = parity,
+                stopbits     = stopbits,
+                timeout      = timeout,
+                xonxoff      = xonxoff,
+                rtscts       = rtscts,
+                writeTimeout = writeTimeout,
+                dsrdtr       = dsrdtr)
         else:
             LOG.debug("Using tcp port %r", port)
             self.mode = 'TCP'
@@ -60,9 +67,9 @@ class SPSerial(object):
         line = c = ""
         try:
             while c != "\n":
-	        c = self.socket.recv(1)
+                c = self.socket.recv(1)
                 line += c
-        except socket.timeout, e:
+        except socket.timeout:
             pass
         return line
 
@@ -79,8 +86,7 @@ class SPSerial(object):
     def sendBreak(self, duration = 1):
         if self.mode == 'Serial':
             return self.serial.sendBreak(duration)
-        else:
-            return self.write("\xFF\xF3") # Break IAC as defined in Telnet RFC
+        return self.write("\xFF\xF3") # Break IAC as defined in Telnet RFC
 
     def setTmpTimeout(self, timeout):
         if self.mode == 'Serial':
@@ -144,12 +150,12 @@ class SPSerial(object):
 
         return r
 
-    def getc(self, size, timeout=1):
+    def getc(self, size, timeout=1): # pylint: disable=unused-argument
         r = self.read(size)
         LOG.debug("RXc: %d", r)
         return r
 
-    def putc(self, data, timeout=1):
+    def putc(self, data, timeout=1): # pylint: disable=unused-argument
         LOG.debug("TXc: %d", data)
         r = self.write(data)
         sleep(0.001)
@@ -162,7 +168,7 @@ class SPSerial(object):
         return r
 
     def xmodem(self, progressbar=None, mode = 'xmodem', pad = '\x1a'):
-        self.progressbar    = progressbar
-        self.progresslen    = 0
+        self.progressbar = progressbar
+        self.progresslen = 0
 
         return XMODEM(getc = self.getc, putc = self.putc, mode = mode, pad = pad)

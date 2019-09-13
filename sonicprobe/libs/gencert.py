@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-""" Certificate generation module """
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.gencert"""
 
 import os
+import six
 
 from OpenSSL import crypto
 
@@ -16,7 +19,7 @@ DIGEST  = ('md2',
            'sha384',
            'sha512')
 
-class GenCert(object):
+class GenCert(object): # pylint: disable=useless-object-inheritance
     def __init__(self, bits=None, crypto_type=None, digest_type=None, notbefore_days=None, notafter_days=None):
         self.bits           = 2048
         self.crypto_type    = crypto.TYPE_RSA
@@ -63,7 +66,7 @@ class GenCert(object):
     def set_notbefore_days(self, days):
         if isinstance(days, int):
             days    = str(days)
-        if not isinstance(days, basestring) or not days.isdigit():
+        if not isinstance(days, six.string_types) or not days.isdigit():
             raise ValueError("Invalid days for notbefore: %r" % days)
         self.notbefore_days = int(days)
         return self
@@ -71,7 +74,7 @@ class GenCert(object):
     def set_notafter_days(self, days):
         if isinstance(days, int):
             days    = str(days)
-        if not isinstance(days, basestring) or not days.isdigit():
+        if not isinstance(days, six.string_types) or not days.isdigit():
             raise ValueError("Invalid days for notafter: %r" % days)
         self.notafter_days = int(days)
         return self
@@ -80,12 +83,12 @@ class GenCert(object):
         pkey = crypto.PKey()
         pkey.generate_key(self.crypto_type, self.bits)
 
-        if isinstance(export_file, basestring):
+        if isinstance(export_file, six.string_types):
             dpkey   = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
             if not os.path.exists(export_file):
                 open(export_file, 'w').close()
-            os.chmod(export_file, 0600)
+            os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'w')
             f.writelines(dpkey)
@@ -95,18 +98,18 @@ class GenCert(object):
     def make_certreq(self, pkey, attributes, export_file=False):
         csr     = crypto.X509Req()
         subject = csr.get_subject()
-        for key, value in attributes.iteritems():
+        for key, value in six.iteritems(attributes):
             setattr(subject, key, value)
 
         csr.set_pubkey(pkey)
         csr.sign(pkey, self.digest_type)
 
-        if isinstance(export_file, basestring):
+        if isinstance(export_file, six.string_types):
             dcsr    = crypto.dump_certificate_request(crypto.FILETYPE_PEM, csr)
 
             if not os.path.exists(export_file):
                 open(export_file, 'w').close()
-            os.chmod(export_file, 0600)
+            os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'w')
             f.writelines(dcsr)
@@ -123,12 +126,12 @@ class GenCert(object):
         crt.set_pubkey(csr.get_pubkey())
         crt.sign(ca_pkey, self.digest_type)
 
-        if isinstance(export_file, basestring):
+        if isinstance(export_file, six.string_types):
             dcrt    = crypto.dump_certificate(crypto.FILETYPE_PEM, crt)
 
             if not os.path.exists(export_file):
                 open(export_file, 'w').close()
-            os.chmod(export_file, 0600)
+            os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'w')
             f.writelines(dcrt)

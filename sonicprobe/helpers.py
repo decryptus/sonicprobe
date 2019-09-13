@@ -1,5 +1,7 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.helpers"""
 
 import base64
 import errno
@@ -14,10 +16,9 @@ import time
 
 from email import encoders
 from email.header import Header
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
 from email.utils import COMMASPACE, formatdate
+
+import logging
 
 import unidecode
 import psutil
@@ -28,16 +29,12 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlLoader, Dumper as YamlDumper
 
-from six import string_types
-try:
-    from StringIO import CStringIO as StringIO
-except ImportError:
-    from six import StringIO
+import six
+from six.moves.email_mime_base import MIMEBase
+from six.moves.email_mime_text import MIMEText
+from six.moves.email_mime_multipart import MIMEMultipart
 
 import pycurl
-
-from sonicprobe import logging
-from sonicprobe.libs import urisup
 
 
 LOG            = logging.getLogger('sonicprobe.helpers')
@@ -52,10 +49,10 @@ RE_SPACE_CHARS = re.compile(r'\s\s+')
 
 
 def boolize(value):
-    if isinstance(value, string_types):
+    if isinstance(value, six.string_types):
         if value.lower() in ('y', 'yes', 't', 'true'):
             return True
-        elif not value.isdigit():
+        if not value.isdigit():
             return False
         value = int(value)
 
@@ -63,11 +60,11 @@ def boolize(value):
 
 def is_scalar(value):
     """ Returns True if is scalar or False otherwise """
-    return isinstance(value, (string_types, bool, int, long, float))
+    return isinstance(value, (six.string_types, bool, six.integer_types, float))
 
 def is_print(value, space = True, tab = False, crlf = False):
     """ Returns True if is print or False otherwise """
-    if not isinstance(value, string_types):
+    if not isinstance(value, six.string_types):
         return False
 
     regex = r'\x00-\x08\x0B\x0C\x0E-\x1F\x7F'
@@ -92,10 +89,13 @@ def clean_string(value):
 def raw_string(value):
     def repl_crtl_chars(match):
         s = match.group()
-        if isinstance(s, str):
+        if six.PY2 and isinstance(s, str):
             return s.encode('string-escape')
-        elif isinstance(s, unicode):
-            return s.encode('unicode-escape')
+        if isinstance(s, six.text_type):
+            r = s.encode('unicode-escape')
+            if six.PY3 and isinstance(r, six.binary_type):
+                return six.ensure_text(r)
+            return r
 
         return repr(s)[1:-1]
 
@@ -120,7 +120,7 @@ def split_to_dict(value, sep):
 
     r = {}
 
-    for key, val in value.iteritems():
+    for key, val in six.iteritems(value):
         ref  = r
         keys = key.split(sep)
         xlen = len(keys)
@@ -137,7 +137,7 @@ def split_to_dict(value, sep):
 
 def merge(current, default):
     if isinstance(current, dict) and isinstance(default, dict):
-        for key, value in default.iteritems():
+        for key, value in six.iteritems(default):
             if key not in current:
                 current[key] = value
             else:
@@ -152,7 +152,7 @@ def has_len(value, default=False, retvalue=False):
     if isinstance(value, bool):
         value = int(value)
 
-    if not isinstance(value, string_types):
+    if not isinstance(value, six.string_types):
         value = str(value)
 
     if not value:
@@ -161,21 +161,21 @@ def has_len(value, default=False, retvalue=False):
     return retvalue is False or value
 
 def unicoder(value):
-    if value is None or isinstance(value, unicode):
+    if value is None or isinstance(value, six.text_type):
         return value
 
     try:
-        value = value.decode('utf8')
+        value = six.ensure_text(value, 'utf8')
     except (UnicodeDecodeError, UnicodeEncodeError):
         try:
-            value = value.decode('latin1')
+            value = six.ensure_text(value, 'latin1')
         except (UnicodeDecodeError, UnicodeEncodeError):
             pass
 
     return value
 
 def unidecoder(value):
-    if value is None or not isinstance(value, unicode):
+    if value is None or not isinstance(value, six.text_type):
         return value
 
     try:
@@ -188,13 +188,18 @@ def unidecoder(value):
 
     return value
 
+def maketrans(chars, charlist):
+    if six.PY3:
+        return (chars.maketrans('', '', charlist),)
+    return (chars, charlist)
+
 def make_dirs(path):
     if not path:
         return
 
     try:
         os.makedirs(path)
-    except OSError, e:
+    except OSError as e:
         if e.errno != errno.EEXIST or not os.path.isdir(path):
             raise
 
@@ -250,7 +255,7 @@ def send_email(xfrom, to, subject, body, cc=None, bcc=None, attachments=None, ho
         if isinstance(attachments, (list, tuple)):
             attachments = dict(zip(attachments, len(attachments) * ('application/octet-stream',)))
 
-        for attachment in sorted(attachments.iterkeys()):
+        for attachment in sorted(six.iterkeys(attachments)):
             fp          = open(attachment, 'rb')
             part        = MIMEBase('application', 'octet-stream')
             part.set_type(attachments[attachment])
@@ -325,7 +330,7 @@ def file_w_tmp(lines, path = None, mode = 'w+'):
     return path
 
 def read_large_file(src, dst = None, buffer_size = 8192):
-    r           = ""
+    r           = b""
     o           = None
 
     if dst:
@@ -337,7 +342,7 @@ def read_large_file(src, dst = None, buffer_size = 8192):
         f = src
 
     while True:
-        data = f.read(buffer_size)
+        data = six.ensure_binary(f.read(buffer_size))
         if not data:
             break
         if o:
@@ -372,9 +377,9 @@ def base64_encode_file(src, dst = None, chunk_size = 8192):
         if not data:
             break
         if o:
-            o.write(base64.b64encode(data))
+            o.write(six.ensure_text(base64.b64encode(data)))
         else:
-            r += base64.b64encode(data)
+            r += six.ensure_text(base64.b64encode(data))
 
     if f:
         f.close()
@@ -386,7 +391,7 @@ def base64_encode_file(src, dst = None, chunk_size = 8192):
     return r
 
 def base64_decode_file(src, dst = None, chunk_size = 8192):
-    r           = ""
+    r           = b""
     o           = None
     chunk_size -= chunk_size % 4 # align to multiples of 4
 
@@ -472,7 +477,7 @@ def escape_parse_args(argslist, argv):
             s = False
         elif arg in argslist \
            and l >= i + 1 \
-           and isinstance(argv[i + 1], string_types) \
+           and isinstance(argv[i + 1], six.string_types) \
            and argv[i + 1].startswith('-'):
             r.append(u"%s=%s" % (arg, argv[i + 1]))
             s = True
@@ -540,7 +545,7 @@ def linesubst(line, variables):
                     LOG.debug("Substitution of {{%s}} by %r", curvar, variables[curvar])
 
                     value = variables[curvar]
-                    if isinstance(value, (float, int, long)):
+                    if isinstance(value, (float, six.integer_types)):
                         value = str(value)
 
                     out += value
@@ -572,7 +577,7 @@ def txtsubst(lines, variables, target_file=None, charset=None):
     ret = []
     for line in lines:
         linesub = linesubst(line, variables)
-        if isinstance(line, unicode):
+        if isinstance(line, six.text_type):
             ret.append(linesub.encode(charset))
         else:
             ret.append(linesub)
@@ -657,14 +662,14 @@ def load_yaml_file(uri):
     (c, b, r) = (None, None, None)
 
     try:
-        b = StringIO()
+        b = six.BytesIO()
         c = pycurl.Curl()
         c.setopt(c.URL, uri)
         c.setopt(c.WRITEFUNCTION, b.write)
         c.perform()
         c.close()
         r = load_yaml(b.getvalue())
-    except pycurl.error, e:
+    except pycurl.error as e:
         LOG.error(repr(e))
     finally:
         if b:
@@ -675,9 +680,11 @@ def load_yaml_file(uri):
     return r
 
 def section_from_yaml_file(uri, key = '__section', config_dir = None):
+    from sonicprobe.libs.urisup import uri_help_split, uri_help_unsplit
+
     section = None
 
-    u = list(urisup.uri_help_split(uri))
+    u = list(uri_help_split(uri))
     if not u[0] and u[2]:
         u[0] = 'file'
         if config_dir and not u[2].startswith('/'):
@@ -692,7 +699,7 @@ def section_from_yaml_file(uri, key = '__section', config_dir = None):
                 q.append((k, v))
         u[3] = q
 
-    r = load_yaml_file(urisup.uri_help_unsplit(u))
+    r = load_yaml_file(uri_help_unsplit(u))
 
     if section \
        and isinstance(r, dict) \

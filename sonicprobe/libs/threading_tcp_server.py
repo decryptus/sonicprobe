@@ -1,18 +1,19 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+# Copyright (C) 2015-2019 Adrien Delle Cave
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""sonicprobe.libs.threading_tcp_server"""
 
 import logging
-import Queue
-import SocketServer
 import threading
 import time
 
-from SocketServer import socket
+from six.moves import queue, socketserver
 from sonicprobe.libs.workerpool import WorkerPool
 
 LOG = logging.getLogger('sonicprobe.threading-tcp-server')
 
 
-class ThreadingHTTPServer(SocketServer.ThreadingTCPServer):
+class ThreadingHTTPServer(socketserver.ThreadingTCPServer):
     """
     Same as HTTPServer, but derives from ThreadingTCPServer instead of
     TCPServer so that each http handler instance runs in its own thread.
@@ -22,18 +23,18 @@ class ThreadingHTTPServer(SocketServer.ThreadingTCPServer):
 
     def server_bind(self):
         """Override server_bind to store the server name."""
-        SocketServer.TCPServer.server_bind(self)
+        socketserver.TCPServer.server_bind(self)
         host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
+        self.server_name = socketserver.socket.getfqdn(host)
         self.server_port = port
 
 
-class KillableDynThreadingTCPServer(SocketServer.ThreadingTCPServer):
+class KillableDynThreadingTCPServer(socketserver.ThreadingTCPServer):
     _killed = False
     allow_reuse_address = 1    # Seems to make sense in testing environment
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
-        SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        socketserver.ThreadingTCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
         max_workers     = int(config.get('max_workers', 0))
         max_requests    = int(config.get('max_requests'))
@@ -42,7 +43,7 @@ class KillableDynThreadingTCPServer(SocketServer.ThreadingTCPServer):
         if max_workers < 1:
             max_workers = 1
 
-        self.requests   = Queue.Queue()
+        self.requests   = queue.Queue()
         self.workerpool = WorkerPool(name        = name,
                                      max_workers = max_workers,
                                      max_tasks   = max_requests,
@@ -60,7 +61,7 @@ class KillableDynThreadingTCPServer(SocketServer.ThreadingTCPServer):
         """simply collect requests and put them on the queue for the workers."""
         try:
             request, client_address = self.get_request()
-        except socket.error:
+        except socketserver.socket.error:
             return
 
         if self.verify_request(request, client_address):
@@ -83,12 +84,12 @@ class KillableDynThreadingHTTPServer(KillableDynThreadingTCPServer, ThreadingHTT
         ThreadingHTTPServer.server_bind(self)
 
 
-class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
+class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
     _killed = False
     allow_reuse_address = 1    # Seems to make sense in testing environment
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
-        SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        socketserver.ThreadingTCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
         self.worker_name   = name
 
@@ -99,7 +100,7 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
         if self.max_workers < 1:
             self.max_workers = 1
 
-        self.requests      = Queue.Queue(self.max_workers)
+        self.requests      = queue.Queue(self.max_workers)
 
         self.add_worker(self.max_workers)
 
@@ -113,14 +114,14 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
     def add_worker(self, nb = 1, name = None):
         tname = name or self.worker_name or "Thread"
 
-        for n in range(nb):
+        for n in range(nb): # pylint: disable=unused-variable
             t = threading.Thread(target = self.process_request_thread,
                                  args   = (self,))
-            t.setName(threading._newname("%s:%%d" % tname))
+            t.setName(threading._newname("%s:%%d" % tname)) # pylint: disable=protected-access
             t.daemon = True
             t.start()
 
-    def process_request_thread(self, mainthread):
+    def process_request_thread(self, mainthread):  # pylint: disable=arguments-differ
         """obtain request from queue instead of directly from server socket"""
         life_time   = time.time()
         nb_requests = 0
@@ -131,11 +132,11 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
                     mainthread.add_worker(1)
                     return
                 try:
-                    SocketServer.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
-                except Queue.Empty:
+                    socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
+                except queue.Empty:
                     continue
             else:
-                SocketServer.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
+                socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
 
             LOG.debug("nb_requests: %d, max_requests: %d", nb_requests, self.max_requests)
             nb_requests += 1
@@ -148,7 +149,7 @@ class KillableThreadingTCPServer(SocketServer.ThreadingTCPServer):
         """simply collect requests and put them on the queue for the workers."""
         try:
             request, client_address = self.get_request()
-        except socket.error:
+        except socketserver.socket.error:
             return
 
         if self.verify_request(request, client_address):
@@ -169,8 +170,9 @@ class KillableThreadingHTTPServer(KillableThreadingTCPServer, ThreadingHTTPServe
         ThreadingHTTPServer.server_bind(self)
 
 
-__all__ = ['ThreadingHTTPServer',
-           'KillableThreadingTCPServer',
-           'KillableThreadingHTTPServer',
-           'KillableDynThreadingTCPServer',
-           'KillableDynThreadingHTTPServer']
+__all__ = [
+    'ThreadingHTTPServer',
+    'KillableThreadingTCPServer',
+    'KillableThreadingHTTPServer',
+    'KillableDynThreadingTCPServer',
+    'KillableDynThreadingHTTPServer']
