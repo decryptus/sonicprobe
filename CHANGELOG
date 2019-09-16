@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.3) unstable; urgency=medium
+
+  * Reviewed requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 16 Sep 2019 11:04:14 +0200
+
 python-sonicprobe (0.3.2) unstable; urgency=medium
 
   * Bug fixed urisup.

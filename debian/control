@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Adrien Delle Cave
 Uploaders: Adrien Delle Cave
-Build-Depends: debhelper (>= 7), dh-python, python (>= 2.7), python-setuptools
+Build-Depends: debhelper (>= 7), dh-python, python (>= 2.7~), python-setuptools
 Standards-Version: 3.9.4
 X-Python-Version: >= 2.7
 Homepage: https://github.com/decryptus/sonicprobe
@@ -11,6 +11,6 @@ Homepage: https://github.com/decryptus/sonicprobe
 Package: python-sonicprobe
 Architecture: all
 Homepage: https://github.com/decryptus/sonicprobe
-Depends: ${misc:Depends}, lsb-release, python-dev (>= 2.7), python-httpdis (>= 0.6.2), python-pip, python-openssl, python-psutil, python-pycurl, python-unidecode, python-yaml
+Depends: ${misc:Depends}, lsb-release, python-dev (>= 2.7~), python-httpdis (>= 0.6.2), python-pip, python-openssl, python-psutil, python-pycurl, python-unidecode, python-yaml
 Suggests: python-mysqldb, python-psycopg2, python-sqlite
 Description: SonicProbe python libraries
