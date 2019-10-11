@@ -26,6 +26,7 @@ MASK_IPV6               = 4
 MASK_DOMAIN             = 256
 MASK_DOMAIN_TLD         = 512
 MASK_DOMAIN_IDN         = 1024
+MASK_SUB_DOMAIN_TLD     = 2048
 
 MASK_IP_ALL             = (MASK_IPV4 |
                            MASK_IPV6)
@@ -43,6 +44,7 @@ MASK_EMAIL_HOST_ALL     = (MASK_DOMAIN_TLD |
 RE_DOMAIN_PART          = re.compile(r'^(' + DOMAIN_PART + r')$').match
 RE_DOMAIN               = re.compile(r'^(?:' + DOMAIN_PART + r'\.)*(?:' + DOMAIN_PART + r')$').match
 RE_DOMAIN_TLD           = re.compile(r'^(?:' + DOMAIN_PART + r'\.)+(?:' + DOMAIN_PART + r')$').match
+RE_SUB_DOMAIN_TLD       = re.compile(r'^(?:' + DOMAIN_PART + r'\.){2,}(?:' + DOMAIN_PART + r')$').match
 RE_EMAIL_LOCALPART      = re.compile(r'^(?:[' + ATOM + r']+(?:\.[' + ATOM + r']+)*|' + \
                                          r'"(?:[' + QTEXT + r']|' + \
                                              r'\\[' + QUOTEDPAIR + r'])+")$').match
@@ -242,6 +244,14 @@ def valid_domain_tld(domain_tld):
 
     return False
 
+def valid_sub_domain_tld(sub_domain_tld):
+    if isinstance(sub_domain_tld, six.string_types) \
+       and len(sub_domain_tld) < 256 \
+       and RE_SUB_DOMAIN_TLD(sub_domain_tld):
+        return True
+
+    return False
+
 def valid_host(host, host_mask = MASK_HOST_ALL):
     if host_mask & MASK_IPV4 and valid_ipv4(host):
         return True
@@ -261,7 +271,38 @@ def valid_host(host, host_mask = MASK_HOST_ALL):
     if host_mask & MASK_DOMAIN_TLD and valid_domain_tld(host):
         return True
 
+    if host_mask & MASK_SUB_DOMAIN_TLD and valid_sub_domain_tld(host):
+        return True
+
     return False
+
+def parse_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
+    r = {'domain':   domain,
+         'wildcard': True}
+
+    if not isinstance(r['domain'], six.string_types):
+        return False
+
+    if r['domain'].startswith('*.'):
+        r['domain']   = r['domain'][2:]
+        r['wildcard'] = True
+
+    if domain_mask & MASK_DOMAIN_IDN:
+        r['domain'] = encode_idn(r['domain'])
+
+    if domain_mask & MASK_DOMAIN and valid_domain(r['domain']):
+        return r
+
+    if domain_mask & MASK_DOMAIN_TLD and valid_domain_tld(r['domain']):
+        return r
+
+    if domain_mask & MASK_SUB_DOMAIN_TLD and valid_sub_domain_tld(r['domain']):
+        return r
+
+    return False
+
+def valid_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
+    return bool(parse_domain_cert(domain, domain_mask))
 
 def valid_port_number(port):
     try:
@@ -314,6 +355,9 @@ def valid_email_address_literal(address, host_mask = MASK_EMAIL_HOST_ALL):
 
     if host_mask & MASK_DOMAIN_IDN:
         mask = mask | MASK_DOMAIN_IDN
+
+    if host_mask & MASK_SUB_DOMAIN_TLD:
+        mask = mask | MASK_SUB_DOMAIN_TLD
 
     if mask == 0 or not valid_host(address, mask):
         return False

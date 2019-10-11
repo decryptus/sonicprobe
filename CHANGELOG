@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.4) unstable; urgency=medium
+
+  * Added methods network.valid_sub_domain_tld and network.parse_domain_cert.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 11 Oct 2019 13:18:44 +0200
+
 python-sonicprobe (0.3.3) unstable; urgency=medium
 
   * Reviewed requirements.txt.
