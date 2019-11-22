@@ -5,13 +5,89 @@
 
 import os
 import re
+import subprocess
 
 # pylint: disable=unused-import
 from six.moves.configparser import ConfigParser, Error, NoSectionError, DuplicateSectionError, \
         NoOptionError, InterpolationError, InterpolationMissingOptionError, \
         InterpolationSyntaxError, InterpolationDepthError, ParsingError, \
         MissingSectionHeaderError, _default_dict
+
+try:
+    from six.moves import cStringIO as StringIO
+except ImportError:
+    from six import StringIO
+
 import six
+import semantic_version
+
+MYSQL_DEFAULT_HOST     = 'localhost'
+MYSQL_DEFAULT_PORT     = 3306
+
+MYSQLCLIENT_PARSE_VERS = re.compile(r'^mysql\s+Ver\s+(?P<version>[^\s]+)\s+Distrib\s+(?P<distrib>[^\s,]+)').match
+MYSQLDUMP_PARSE_VERS   = re.compile(r'^mysqldump\s+Ver\s+(?P<version>[^\s]+)\s+Distrib\s+(?P<distrib>[^\s,]+)').match
+
+
+class MySQLConfigVersion(object):
+    def __init__(self, default_file = 'client.cnf', custom_file = "", config_dir = None):
+        self._config_dir   = config_dir
+        self._default_file = default_file or ""
+        self._custom_file  = custom_file or ""
+        self._myconf       = MySQLConfigParser()
+
+    def _read_file(self, filepath):
+        if self._config_dir and not filepath.startswith(os.path.sep):
+            filepath = os.path.join(self._config_dir, filepath)
+
+        if not os.path.isfile(filepath):
+            return ""
+
+        with open(filepath, 'r') as f:
+            return f.read()
+
+    @staticmethod
+    def _set_specific_conf(cfg, section, version):
+        secname = "%s=%s" % (section, version)
+        if cfg.has_section(secname):
+            for x in cfg.items(secname):
+                cfg.set(*[section] + list(x))
+
+    def _check_conf_versions(self, cfg, section, version, vername = ""):
+        ver = semantic_version.Version(version, partial = True)
+        for x in ('major', 'minor', 'patch', 'prerelease', 'build'):
+            v = getattr(ver, x, None)
+            if not v:
+                break
+            if isinstance(v, tuple):
+                v = '.'.join(v)
+            vername += "%s." % v
+            self._set_specific_conf(cfg, section, vername.rstrip('.'))
+
+    def _get_config(self, section, progpath, parse_vers):
+        my_vers = parse_vers(subprocess.check_output((progpath, '--version')).strip())
+        myconf = StringIO("%s\n%s" % (self._read_file(self._default_file),
+                                      self._read_file(self._custom_file)))
+        self._myconf.readfp(myconf)
+        myconf.close()
+
+        if my_vers:
+            self._check_conf_versions(self._myconf,
+                                      section,
+                                      my_vers.group('version'),
+                                      'ver-')
+            self._check_conf_versions(self._myconf,
+                                      section,
+                                      my_vers.group('distrib'),
+                                      'dist-')
+
+        return self._myconf
+
+    def get_client(self):
+        return self._get_config('client', 'mysql', MYSQLCLIENT_PARSE_VERS)
+
+    def get_mysqldump(self):
+        return self._get_config('mysqldump', 'mysqldump', MYSQLDUMP_PARSE_VERS)
+
 
 class MySQLConfigParser(ConfigParser):
     if os.name == 'nt':
@@ -35,9 +111,9 @@ class MySQLConfigParser(ConfigParser):
         if not retint:
             return ret
 
-        return(int(ret))
+        return int(ret)
 
-    def read(self, filenames, encoding=None):
+    def read(self, filenames, encoding=None): # pylint: disable=arguments-differ
         if isinstance(filenames, six.string_types):
             filenames = [filenames]
 
@@ -49,7 +125,7 @@ class MySQLConfigParser(ConfigParser):
         if six.PY2:
             return ConfigParser.read(self, file_ok)
 
-        return ConfigParser.read(self, file_ok, encoding)
+        return ConfigParser.read(self, file_ok, encoding) # pylint: disable=too-many-function-args
 
     def readfp(self, fp, filename=None):
         return ConfigParser.readfp(self, MySQLConfigParserFilter(fp), filename)
@@ -58,7 +134,7 @@ class MySQLConfigParser(ConfigParser):
         if six.PY2:
             return ConfigParser.readfp(self, MySQLConfigParserFilter(f), source)
 
-        return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source)
+        return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source) # pylint: disable=no-member
 
 
 class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inheritance

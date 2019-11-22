@@ -1,3 +1,15 @@
+python-sonicprobe (0.3.6) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 22 Nov 2019 09:58:04 +0100
+
+python-sonicprobe (0.3.5) unstable; urgency=medium
+
+  * Added class MySQLConfigVersion.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 22 Nov 2019 09:53:39 +0100
+
 python-sonicprobe (0.3.4) unstable; urgency=medium
 
   * Added methods network.valid_sub_domain_tld and network.parse_domain_cert.
