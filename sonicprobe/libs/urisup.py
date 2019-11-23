@@ -366,12 +366,25 @@ def uri_tree_normalize(uri_tree):
     sufficient) the classification switches of some URI parts according to
     the content of others.
     """
-    scheme, authority, path, query_raw, fragment = uri_tree
-    query  = []
-    scheme = six.ensure_str(scheme) if scheme else None
+    scheme, authority_raw, path, query_raw, fragment = uri_tree
+    authority = []
+    query     = []
+    scheme    = six.ensure_str(scheme) if scheme else None
 
-    if authority:
-        authority = [six.ensure_str(x) if bool(x) else x for x in authority]
+    if authority_raw:
+        empty = True
+        for x in authority_raw:
+            if isinstance(x, six.integer_types):
+                empty = False
+                authority.append(x)
+            elif bool(x):
+                empty = False
+                authority.append(six.ensure_str(x))
+            else:
+                authority.append(x)
+
+        if empty:
+            authority = None
 
     path = six.ensure_str(path) if path else None
 
@@ -379,12 +392,21 @@ def uri_tree_normalize(uri_tree):
         for x in query_raw:
             add = False
             y   = list(x)
+
             if bool(x[0]):
                 add = True
-                y[0] = six.ensure_str(x[0])
+                if isinstance(x[0], six.integer_types):
+                    y[0] = x[0]
+                else:
+                    y[0] = six.ensure_str(x[0])
+
             if bool(x[1]):
                 add = True
-                y[1] = six.ensure_str(x[1])
+                if isinstance(x[1], six.integer_types):
+                    y[1] = x[1]
+                else:
+                    y[1] = six.ensure_str(x[1])
+
             if add:
                 query.append(y)
 
