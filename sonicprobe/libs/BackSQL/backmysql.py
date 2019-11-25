@@ -12,6 +12,7 @@ Copyright (C) 2007-2010  Proformatique
 import six
 
 import MySQLdb
+import MySQLdb.cursors
 from MySQLdb.converters import conversions as CST_CONVERSIONS
 
 from sonicprobe.libs import anysql
@@ -31,7 +32,7 @@ __typemap = {
     'use_unicode': (lambda x: bool(int(x))),
     'conv': None,
     'quote_conv': None,
-    'cursorclass': None,
+    'cursorclass': (lambda x: getattr(MySQLdb.cursors, "%sCursor" % (x or ""))),
     'charset': str,
 }
 

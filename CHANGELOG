@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.9) unstable; urgency=medium
+
+  * Reviewed option cursorclass for anysql with backmysql.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 25 Nov 2019 19:59:30 +0100
+
 python-sonicprobe (0.3.8) unstable; urgency=medium
 
   * Reviewed requirements.
