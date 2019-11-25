@@ -196,7 +196,7 @@ class cursor(object): # pylint: disable=useless-object-inheritance
 
             self.__dbapi2_cursor.executemany(tmp_query, seq_of_parameters)
 
-    def fetchone(self):
+    def fetchone(self, raw = False):
         """
         As in DBAPI2.0 (except the fact rows are not tuples but
         lists so if you try to modify them, you will succeed instead of
@@ -212,11 +212,14 @@ class cursor(object): # pylint: disable=useless-object-inheritance
 
             result = self.__dbapi2_cursor.fetchone()
 
+        if raw:
+            return result
+
         if not result:
             return result
         return self.row(self.__col2idx_map, result)
 
-    def fetchmany(self, size = None):
+    def fetchmany(self, size = None, raw = False):
         """
         As in DBAPI2.0 (except the fact rows are not tuples but
         lists so if you try to modify them, you will succeed instead of
@@ -238,12 +241,15 @@ class cursor(object): # pylint: disable=useless-object-inheritance
                 manyrows = self.__dbapi2_cursor.fetchmany()
             else:
                 manyrows = self.__dbapi2_cursor.fetchmany(size)
+
+        if raw:
+            return manyrows
 
         if not manyrows:
             return manyrows
         return [self.row(self.__col2idx_map, dbapi2_row) for dbapi2_row in manyrows]
 
-    def fetchall(self):
+    def fetchall(self, raw = False):
         """
         As in DBAPI2.0 (except the fact rows are not tuples but
         lists so if you try to modify them, you will succeed instead of
@@ -259,6 +265,9 @@ class cursor(object): # pylint: disable=useless-object-inheritance
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
 
             allrows = self.__dbapi2_cursor.fetchall()
+
+        if raw:
+            return allrows
 
         if not allrows:
             return allrows
