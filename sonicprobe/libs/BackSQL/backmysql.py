@@ -37,8 +37,10 @@ __typemap = {
 }
 
 __conn_typemap = {
-    'time_zone': str,
     'autocommit': (lambda x: bool(int(x))),
+    'interactive_timeout': int,
+    'time_zone': str,
+    'wait_timeout': int,
 }
 
 def __apply_types(params, typemap):
