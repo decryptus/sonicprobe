@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.12) unstable; urgency=medium
+
+  * Reviewed sonicprobe.libs.workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 01 Dec 2019 11:18:02 +0100
+
 python-sonicprobe (0.3.11) unstable; urgency=medium
 
   * Added mysql parameters for anysql.

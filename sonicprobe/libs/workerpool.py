@@ -103,14 +103,19 @@ class WorkerThread(threading.Thread):
         self.pool.count_lock.acquire()
         self.pool.workers -= 1
         if not self.pool.workers:
+            self.pool.count_lock.release()
             self.pool.kill_event.set()
+        else:
+            self.pool.count_lock.release()
 
+        self.pool.count_lock.acquire()
         if (not self.pool.tasks.empty() \
             or (self.pool.workers > 0 and self.pool.working >= self.pool.workers)) \
            and (self.pool.workers < self.pool.max_workers):
             self.pool.count_lock.release()
             self.pool.add(name = name, xid = self.xid)
         else:
+            self.pool.id_list.append(self.xid)
             self.pool.count_lock.release()
 
 
@@ -124,6 +129,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         self.name        = name
         self.max_tasks   = max_tasks
         self.auto_gc     = auto_gc
+        self.id_list     = range(1, max_workers + 1)
 
         self.kill_event  = threading.Event()
         self.count_lock  = threading.RLock()
@@ -186,7 +192,10 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
                 continue
             self.workers += 1
             if xid is None:
-                xid = self.workers
+                if self.id_list:
+                    xid = self.id_list.pop(0)
+                else:
+                    xid = self.workers
             self.count_lock.release()
             self.kill_event.clear()
             w = WorkerThread(xid, self)
