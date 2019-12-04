@@ -12,6 +12,8 @@ from six.moves import queue as _queue, range as xrange
 
 LOG = logging.getLogger('sonicprobe.workerpool')
 
+DEFAULT_MAX_WORKERS = 10
+
 
 class WorkerExit(object): # pylint: disable=useless-object-inheritance,too-few-public-methods
     pass
@@ -120,16 +122,18 @@ class WorkerThread(threading.Thread):
 
 
 class WorkerPool(object): # pylint: disable=useless-object-inheritance
-    def __init__(self, queue = None, max_workers = 10, life_time = None, name = None, max_tasks = None, auto_gc = True):
+    def __init__(self, queue = None, max_workers = DEFAULT_MAX_WORKERS, life_time = None, name = None, max_tasks = None, auto_gc = True):
         self.tasks       = queue or _queue.Queue()
         self.workers     = 0
         self.working     = 0
-        self.max_workers = max_workers
+        self.max_workers = int(max_workers)
+        if self.max_workers < 1:
+            self.max_workers = DEFAULT_MAX_WORKERS
         self.life_time   = life_time
         self.name        = name
         self.max_tasks   = max_tasks
         self.auto_gc     = auto_gc
-        self.id_list     = range(1, max_workers + 1)
+        self.id_list     = []
 
         self.kill_event  = threading.Event()
         self.count_lock  = threading.RLock()
@@ -185,6 +189,13 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         """
         Create one or many workers.
         """
+        nb = int(nb)
+        if nb < 1:
+            nb = 1
+
+        if nb > self.max_workers:
+            nb = self.max_workers
+
         for x in xrange(nb): # pylint: disable=unused-variable
             self.count_lock.acquire()
             if self.workers >= self.max_workers:
