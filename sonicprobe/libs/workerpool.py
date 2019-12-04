@@ -54,7 +54,7 @@ class WorkerThread(threading.Thread):
     def run(self):
         name = None
 
-        while True:
+        while not self.pool.exit:
             if self.expired() or self.max_tasks_reached():
                 if self.pool.auto_gc:
                     gc.collect()
@@ -68,7 +68,7 @@ class WorkerThread(threading.Thread):
             except _queue.Empty:
                 continue
 
-            if isinstance(task, WorkerExit):
+            if self.pool.exit or isinstance(task, WorkerExit):
                 break
 
             self.pool.count_lock.acquire()
@@ -110,6 +110,9 @@ class WorkerThread(threading.Thread):
         else:
             self.pool.count_lock.release()
 
+        if self.pool.exit:
+            return
+
         self.pool.count_lock.acquire()
         if (not self.pool.tasks.empty() \
             or (self.pool.workers > 0 and self.pool.working >= self.pool.workers)) \
@@ -135,6 +138,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         self.auto_gc     = auto_gc
         self.id_list     = []
 
+        self.exit        = False
         self.kill_event  = threading.Event()
         self.count_lock  = threading.RLock()
 
@@ -235,6 +239,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         @wait: Seconds to wait until last worker ends.
                If None it waits forever.
         """
+        self.exit = True
         with self.tasks.mutex:
             self.tasks.queue.clear()
         self.count_lock.acquire()
