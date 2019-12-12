@@ -156,6 +156,9 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         self.count_lock.release()
         return r
 
+    def killable(self):
+        return self.tasks.empty() and self.count_working() == 0
+
     def kill(self, nb = 1):
         """
         Kill one or many workers.

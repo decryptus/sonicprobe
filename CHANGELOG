@@ -1,3 +1,15 @@
+python-sonicprobe (0.3.16) unstable; urgency=medium
+
+  * Added method killable on sonicprobe.libs.workerpool.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 12 Dec 2019 11:57:47 +0100
+
+python-sonicprobe (0.3.15) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 11 Dec 2019 19:31:58 +0100
+
 python-sonicprobe (0.3.14) unstable; urgency=medium
 
   * Reviewed sonicprobe.libs.workerpool.
