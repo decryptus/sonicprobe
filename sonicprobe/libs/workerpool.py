@@ -261,7 +261,10 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         """
         self.exit = True
         with self.tasks.mutex:
-            self.tasks.queue.clear()
+            if isinstance(self.tasks.queue, list):
+                self.tasks.queue = []
+            else:
+                self.tasks.queue.clear()
         self.count_lock.acquire()
         self.kill(self.workers)
         self.count_lock.release()
