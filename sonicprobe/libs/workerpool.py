@@ -12,7 +12,8 @@ from six.moves import queue as _queue, range as xrange
 
 LOG = logging.getLogger('sonicprobe.workerpool')
 
-DEFAULT_MAX_WORKERS = 10
+DEFAULT_MAX_WORKERS   = 10
+DEFAULT_EXIT_PRIORITY = -9999
 
 
 class WorkerExit(object): # pylint: disable=useless-object-inheritance,too-few-public-methods
@@ -64,7 +65,10 @@ class WorkerThread(threading.Thread):
                 continue
 
             try:
-                task = self.pool.tasks.get_nowait()
+                if not self.pool.is_qpriority:
+                    task = self.pool.tasks.get_nowait()
+                else:
+                    qpriority, task = self.pool.tasks.get_nowait()
             except _queue.Empty:
                 continue
 
@@ -126,21 +130,23 @@ class WorkerThread(threading.Thread):
 
 class WorkerPool(object): # pylint: disable=useless-object-inheritance
     def __init__(self, queue = None, max_workers = DEFAULT_MAX_WORKERS, life_time = None, name = None, max_tasks = None, auto_gc = True):
-        self.tasks       = queue or _queue.Queue()
-        self.workers     = 0
-        self.working     = 0
-        self.max_workers = int(max_workers)
+        self.tasks        = queue or _queue.Queue()
+        self.workers      = 0
+        self.working      = 0
+        self.max_workers  = int(max_workers)
         if self.max_workers < 1:
             self.max_workers = DEFAULT_MAX_WORKERS
-        self.life_time   = life_time
-        self.name        = name
-        self.max_tasks   = max_tasks
-        self.auto_gc     = auto_gc
-        self.id_list     = []
+        self.life_time    = life_time
+        self.name         = name
+        self.max_tasks    = max_tasks
+        self.auto_gc      = auto_gc
+        self.id_list      = []
 
-        self.exit        = False
-        self.kill_event  = threading.Event()
-        self.count_lock  = threading.RLock()
+        self.exit         = False
+        self.kill_event   = threading.Event()
+        self.count_lock   = threading.RLock()
+
+        self.is_qpriority = isinstance(self.tasks, _queue.PriorityQueue)
 
         self.kill_event.set()
 
@@ -168,7 +174,10 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             nb = self.workers
         self.count_lock.release()
         for x in xrange(nb): # pylint: disable=unused-variable
-            self.tasks.put(WorkerExit())
+            if not self.is_qpriority:
+                self.tasks.put(WorkerExit())
+            else:
+                self.tasks.put((DEFAULT_EXIT_PRIORITY, WorkerExit()))
 
     def set_max_workers(self, nb):
         """
@@ -220,13 +229,14 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             w.setName(self.get_name(xid, name))
             w.start()
 
-    def run(self, target, callback = None, name = None, complete = None, *args, **kargs):
+    def run(self, target, callback = None, name = None, complete = None, qpriority = None, *args, **kargs):
         """
         Start task.
         @target: callable to run with *args and **kargs arguments.
         @callback: callable executed after target.
         @name: thread name
         @complete: complete executed after target in finally
+        @qpriority: priority for PriorityQueue
         """
         self.count_lock.acquire()
         if not self.workers:
@@ -234,7 +244,14 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             self.add(name = name)
         else:
             self.count_lock.release()
-        self.tasks.put((target, callback, name, complete, args, kargs))
+
+        if not self.is_qpriority:
+            self.tasks.put((target, callback, name, complete, args, kargs))
+            return
+
+        if qpriority is None:
+            qpriority = time.time()
+        self.tasks.put((qpriority, (target, callback, name, complete, args, kargs)))
 
     def killall(self, wait = None):
         """
