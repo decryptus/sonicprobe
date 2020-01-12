@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.23) unstable; urgency=medium
+
+  * Added function helpers.get_nb_workers 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sun, 12 Jan 2020 17:36:59 +0100
+
 python-sonicprobe (0.3.22) unstable; urgency=medium
 
   * Fixed version.

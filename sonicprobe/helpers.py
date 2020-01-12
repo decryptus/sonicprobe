@@ -18,6 +18,8 @@ from email import encoders
 from email.header import Header
 from email.utils import COMMASPACE, formatdate
 
+from multiprocessing import cpu_count
+
 import logging
 
 import unidecode
@@ -113,6 +115,15 @@ def normalize_string(value, case = None):
     return unidecode.unidecode(
         clean_string(
             unicoder(value)))
+
+def percent_to_float(value):
+    if not isinstance(value, six.string_types):
+        return False
+
+    try:
+        return float(value.strip('%')) / 100
+    except ValueError:
+        return False
 
 def split_to_dict(value, sep):
     if not isinstance(value, dict):
@@ -705,5 +716,29 @@ def section_from_yaml_file(uri, key = '__section', config_dir = None):
        and isinstance(r, dict) \
        and section in r:
         return r[section]
+
+    return r
+
+def get_nb_workers(value, xmin = 1, default = False):
+    r = None
+
+    if isinstance(value, six.string_types):
+        if value.lower() == 'auto':
+            r = cpu_count()
+        elif '%' in value:
+            r = percent_to_float(value)
+            if r is not False:
+                r *= cpu_count()
+                r = int(r)
+        elif value.digit():
+            r = int(value)
+
+    if isinstance(value, six.integer_types):
+        r = int(value)
+
+    if not isinstance(r, six.integer_types):
+        r = default
+    elif r < xmin:
+        r = xmin
 
     return r

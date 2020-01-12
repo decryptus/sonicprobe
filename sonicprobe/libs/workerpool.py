@@ -10,6 +10,8 @@ import time
 
 from six.moves import queue as _queue, range as xrange
 
+from sonicprobe import helpers
+
 LOG = logging.getLogger('sonicprobe.workerpool')
 
 DEFAULT_MAX_WORKERS   = 10
@@ -133,9 +135,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         self.tasks        = queue or _queue.Queue()
         self.workers      = 0
         self.working      = 0
-        self.max_workers  = int(max_workers)
-        if self.max_workers < 1:
-            self.max_workers = DEFAULT_MAX_WORKERS
+        self.max_workers  = helpers.get_nb_workers(max_workers, xmin = 1, default = DEFAULT_MAX_WORKERS)
         self.life_time    = life_time
         self.name         = name
         self.max_tasks    = max_tasks
