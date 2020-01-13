@@ -253,6 +253,20 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             qpriority = time.time()
         self.tasks.put((qpriority, (target, callback, name, complete, args, kargs)))
 
+    def run_args(self, target, *args, **kwargs):
+        callback  = kwargs.pop('_callback_', None)
+        name      = kwargs.pop('_name_', None)
+        complete  = kwargs.pop('_complete_', None)
+        qpriority = kwargs.pop('_qpriority_', None)
+
+        self.run(target    = target,
+                 callback  = callback,
+                 name      = name,
+                 complete  = complete,
+                 qpriority = qpriority,
+                 *args,
+                 **kwargs)
+
     def killall(self, wait = None):
         """
         Kill all active workers.
