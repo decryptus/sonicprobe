@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.25) unstable; urgency=medium
+
+  * Fixed sonicprobe.libs.network.encode_idn and sonicprobe.libs.network.decode_idn.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 06 Apr 2020 07:18:56 +0200
+
 python-sonicprobe (0.3.24) unstable; urgency=medium
 
   * Added method sonicprobe.libs.workerpool.WorkerPool.run_args.

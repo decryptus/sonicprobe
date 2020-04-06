@@ -206,20 +206,30 @@ def parse_ipv4_cidr(cidr):
 
     return r
 
-def encode_idn(value):
+def encode_idn(value, text_type = False):
     if not isinstance(value, six.string_types):
         return False
 
     if not isinstance(value, six.text_type):
         value = six.ensure_str(value)
 
-    return value.encode('idna')
+    if text_type:
+        return six.ensure_text(value.encode('idna'))
+
+    return six.ensure_binary(value.encode('idna'))
 
 def decode_idn(value):
     if not isinstance(value, six.string_types):
         return False
 
-    return six.ensure_binary(value).decode('idna')
+    value = six.ensure_binary(value)
+
+    try:
+        value = value.decode('idna')
+    except UnicodeDecodeError:
+        pass
+
+    return six.ensure_text(value)
 
 def valid_domain_part(domain_part):
     if isinstance(domain_part, six.string_types) \
