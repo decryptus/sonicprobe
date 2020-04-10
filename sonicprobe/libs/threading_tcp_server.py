@@ -132,9 +132,12 @@ class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
                     mainthread.add_worker(1)
                     return
                 try:
-                    socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
-                except queue.Empty:
-                    continue
+                    try:
+                        socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
+                    except queue.Empty:
+                        continue
+                except AttributeError:
+                    return
             else:
                 socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
 

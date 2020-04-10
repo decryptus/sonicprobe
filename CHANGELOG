@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.26) unstable; urgency=medium
+
+  * Reviewed catching exception. 
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 10 Apr 2020 08:03:00 +0200
+
 python-sonicprobe (0.3.25) unstable; urgency=medium
 
   * Fixed sonicprobe.libs.network.encode_idn and sonicprobe.libs.network.decode_idn.
