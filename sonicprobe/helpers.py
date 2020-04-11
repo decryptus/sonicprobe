@@ -27,9 +27,9 @@ import psutil
 
 import yaml
 try:
-    from yaml import CSafeLoader as YamlLoader, CDumper as YamlDumper
+    from yaml import CSafeLoader as YamlLoader, CSafeDumper as YamlDumper
 except ImportError:
-    from yaml import SafeLoader as YamlLoader, Dumper as YamlDumper
+    from yaml import SafeLoader as YamlLoader, SafeDumper as YamlDumper
 
 import six
 from six.moves.email_mime_base import MIMEBase
@@ -48,6 +48,7 @@ ALPHANUM       = frozenset(
 
 RE_CRTL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
 RE_SPACE_CHARS = re.compile(r'\s\s+')
+RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
 
 
 def boolize(value):
@@ -740,5 +741,26 @@ def get_nb_workers(value, xmin = 1, default = False):
         r = default
     elif r < xmin:
         r = xmin
+
+    return r
+
+def to_yaml(value, *args, **kwargs):
+    has_qstr = False
+
+    if isinstance(value, (six.string_types, six.text_type)) \
+       and RE_YAML_QSTR(value):
+        has_qstr = True
+
+    r = dump_yaml([value],
+                  default_flow_style = None,
+                  default_style = '',
+                  allow_unicode = True,
+                  **kwargs)[1:-2]
+
+    if not has_qstr \
+       and isinstance(r, (six.string_types, six.text_type)):
+        m = RE_YAML_QSTR(r)
+        if m:
+            return m.group(1)
 
     return r

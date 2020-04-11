@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.27) unstable; urgency=medium
+
+  * Added function sonicprobe.helpers.to_yaml.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 11 Apr 2020 16:11:47 +0200
+
 python-sonicprobe (0.3.26) unstable; urgency=medium
 
   * Reviewed catching exception. 
