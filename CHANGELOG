@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.29) unstable; urgency=medium
+
+  * Fixed py3 condition.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Mon, 27 Jul 2020 03:12:25 +0200
+
 python-sonicprobe (0.3.28) unstable; urgency=medium
 
   * Reviewed requirements.

@@ -37,7 +37,8 @@ class WorkerThread(threading.Thread):
         return threading.Thread.start(self)
 
     def expired(self):
-        if self.pool.life_time > 0 \
+        if self.pool.life_time \
+           and self.pool.life_time > 0 \
            and self.life_time > 0 \
            and (time.time() - self.life_time) >= self.pool.life_time:
             LOG.debug("worker expired")
@@ -46,7 +47,8 @@ class WorkerThread(threading.Thread):
         return False
 
     def max_tasks_reached(self):
-        if self.pool.max_tasks > 0 \
+        if self.pool.max_tasks \
+           and self.pool.max_tasks > 0 \
            and self.nb_tasks > 0 \
            and self.nb_tasks >= self.pool.max_tasks:
             LOG.debug("worker max tasks reached")
