@@ -63,8 +63,11 @@ class MySQLConfigVersion(object):
             vername += "%s." % v
             self._set_specific_conf(cfg, section, vername.rstrip('.'))
 
-    def _get_config(self, section, progpath, parse_vers):
-        my_vers = parse_vers(subprocess.check_output((progpath, '--version')).strip())
+    def _get_config(self, section, progpath, parse_vers, check_version = True):
+        my_vers = False
+        if check_version:
+            my_vers = parse_vers(subprocess.check_output((progpath, '--version')).strip())
+
         myconf = StringIO("%s\n%s" % (self._read_file(self._default_file),
                                       self._read_file(self._custom_file)))
         self._myconf.readfp(myconf)
@@ -82,11 +85,11 @@ class MySQLConfigVersion(object):
 
         return self._myconf
 
-    def get_client(self):
-        return self._get_config('client', 'mysql', MYSQLCLIENT_PARSE_VERS)
+    def get_client(self, check_version = True):
+        return self._get_config('client', 'mysql', MYSQLCLIENT_PARSE_VERS, check_version)
 
-    def get_mysqldump(self):
-        return self._get_config('mysqldump', 'mysqldump', MYSQLDUMP_PARSE_VERS)
+    def get_mysqldump(self, check_version = True):
+        return self._get_config('mysqldump', 'mysqldump', MYSQLDUMP_PARSE_VERS, check_version)
 
 
 class MySQLConfigParser(ConfigParser):

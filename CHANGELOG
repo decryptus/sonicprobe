@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.30) unstable; urgency=medium
+
+  * Added argument check_version in MySQLConfigVersion.get_client / MySQLConfigVersion.get_mysqldump.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 10 Sep 2020 00:34:49 +0200
+
 python-sonicprobe (0.3.29) unstable; urgency=medium
 
   * Fixed py3 condition.
