@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.32) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 17 Sep 2020 14:38:01 +0200
+
 python-sonicprobe (0.3.31) unstable; urgency=medium
 
   * Reviewed six importation.
