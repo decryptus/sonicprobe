@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright 2007-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.BackSQL.backsqlite3"""
+"""sonicprobe.libs.BackSQL.backsqlite3
 
-"""Backend support for SQLite3 for anysql
+Backend support for SQLite3 for anysql
 
 Copyright (C) 2007-2010  Proformatique
 

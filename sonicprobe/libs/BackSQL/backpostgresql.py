@@ -1,14 +1,15 @@
 # -*- coding: utf8 -*-
 # Copyright 2007-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.BackSQL.backpostgresql"""
-"""Backend support for PostgreSQL for anysql
+"""sonicprobe.libs.BackSQL.backpostgresql
+
+Backend support for PostgreSQL for anysql
 
 Copyright (C) 2010  Avencall
 
 """
 
-import six
+from six import iterkeys
 
 import psycopg2
 import psycopg2.extensions
@@ -38,7 +39,7 @@ __typemap = {
 }
 
 def __apply_types(params, typemap):
-    for k in six.iterkeys(typemap):
+    for k in iterkeys(typemap):
         if k in params:
             if typemap[k] is not None:
                 params[k] = typemap[k](params[k])

@@ -31,7 +31,18 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlLoader, SafeDumper as YamlDumper
 
-import six
+from six import (PY2,
+                 PY3,
+                 BytesIO,
+                 binary_type,
+                 integer_types,
+                 iterkeys,
+                 iteritems,
+                 ensure_binary,
+                 ensure_text,
+                 string_types,
+                 text_type)
+
 from six.moves.email_mime_base import MIMEBase
 from six.moves.email_mime_text import MIMEText
 from six.moves.email_mime_multipart import MIMEMultipart
@@ -52,7 +63,7 @@ RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
 
 
 def boolize(value):
-    if isinstance(value, six.string_types):
+    if isinstance(value, string_types):
         if value.lower() in ('y', 'yes', 't', 'true'):
             return True
         if not value.isdigit():
@@ -63,11 +74,11 @@ def boolize(value):
 
 def is_scalar(value):
     """ Returns True if is scalar or False otherwise """
-    return isinstance(value, (six.string_types, bool, six.integer_types, float))
+    return isinstance(value, (string_types, bool, integer_types, float))
 
 def is_print(value, space = True, tab = False, crlf = False):
     """ Returns True if is print or False otherwise """
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, string_types):
         return False
 
     regex = r'\x00-\x08\x0B\x0C\x0E-\x1F\x7F'
@@ -92,12 +103,12 @@ def clean_string(value):
 def raw_string(value):
     def repl_crtl_chars(match):
         s = match.group()
-        if six.PY2 and isinstance(s, str):
+        if PY2 and isinstance(s, str):
             return s.encode('string-escape')
-        if isinstance(s, six.text_type):
+        if isinstance(s, text_type):
             r = s.encode('unicode-escape')
-            if six.PY3 and isinstance(r, six.binary_type):
-                return six.ensure_text(r)
+            if PY3 and isinstance(r, binary_type):
+                return ensure_text(r)
             return r
 
         return repr(s)[1:-1]
@@ -118,7 +129,7 @@ def normalize_string(value, case = None):
             unicoder(value)))
 
 def percent_to_float(value):
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, string_types):
         return False
 
     try:
@@ -132,7 +143,7 @@ def split_to_dict(value, sep):
 
     r = {}
 
-    for key, val in six.iteritems(value):
+    for key, val in iteritems(value):
         ref  = r
         keys = key.split(sep)
         xlen = len(keys)
@@ -149,7 +160,7 @@ def split_to_dict(value, sep):
 
 def merge(current, default):
     if isinstance(current, dict) and isinstance(default, dict):
-        for key, value in six.iteritems(default):
+        for key, value in iteritems(default):
             if key not in current:
                 current[key] = value
             else:
@@ -164,7 +175,7 @@ def has_len(value, default=False, retvalue=False):
     if isinstance(value, bool):
         value = int(value)
 
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, string_types):
         value = str(value)
 
     if not value:
@@ -173,21 +184,21 @@ def has_len(value, default=False, retvalue=False):
     return retvalue is False or value
 
 def unicoder(value):
-    if value is None or isinstance(value, six.text_type):
+    if value is None or isinstance(value, text_type):
         return value
 
     try:
-        value = six.ensure_text(value, 'utf8')
+        value = ensure_text(value, 'utf8')
     except (UnicodeDecodeError, UnicodeEncodeError):
         try:
-            value = six.ensure_text(value, 'latin1')
+            value = ensure_text(value, 'latin1')
         except (UnicodeDecodeError, UnicodeEncodeError):
             pass
 
     return value
 
 def unidecoder(value):
-    if value is None or not isinstance(value, six.text_type):
+    if value is None or not isinstance(value, text_type):
         return value
 
     try:
@@ -201,7 +212,7 @@ def unidecoder(value):
     return value
 
 def maketrans(chars, charlist):
-    if six.PY3:
+    if PY3:
         return (chars.maketrans('', '', charlist),)
     return (chars, charlist)
 
@@ -267,7 +278,7 @@ def send_email(xfrom, to, subject, body, cc=None, bcc=None, attachments=None, ho
         if isinstance(attachments, (list, tuple)):
             attachments = dict(zip(attachments, len(attachments) * ('application/octet-stream',)))
 
-        for attachment in sorted(six.iterkeys(attachments)):
+        for attachment in sorted(iterkeys(attachments)):
             fp          = open(attachment, 'rb')
             part        = MIMEBase('application', 'octet-stream')
             part.set_type(attachments[attachment])
@@ -354,7 +365,7 @@ def read_large_file(src, dst = None, buffer_size = 8192):
         f = src
 
     while True:
-        data = six.ensure_binary(f.read(buffer_size))
+        data = ensure_binary(f.read(buffer_size))
         if not data:
             break
         if o:
@@ -389,9 +400,9 @@ def base64_encode_file(src, dst = None, chunk_size = 8192):
         if not data:
             break
         if o:
-            o.write(six.ensure_text(base64.b64encode(data)))
+            o.write(ensure_text(base64.b64encode(data)))
         else:
-            r += six.ensure_text(base64.b64encode(data))
+            r += ensure_text(base64.b64encode(data))
 
     if f:
         f.close()
@@ -489,7 +500,7 @@ def escape_parse_args(argslist, argv):
             s = False
         elif arg in argslist \
            and l >= i + 1 \
-           and isinstance(argv[i + 1], six.string_types) \
+           and isinstance(argv[i + 1], string_types) \
            and argv[i + 1].startswith('-'):
             r.append(u"%s=%s" % (arg, argv[i + 1]))
             s = True
@@ -557,7 +568,7 @@ def linesubst(line, variables):
                     LOG.debug("Substitution of {{%s}} by %r", curvar, variables[curvar])
 
                     value = variables[curvar]
-                    if isinstance(value, (float, six.integer_types)):
+                    if isinstance(value, (float, integer_types)):
                         value = str(value)
 
                     out += value
@@ -589,7 +600,7 @@ def txtsubst(lines, variables, target_file=None, charset=None):
     ret = []
     for line in lines:
         linesub = linesubst(line, variables)
-        if isinstance(line, six.text_type):
+        if isinstance(line, text_type):
             ret.append(linesub.encode(charset))
         else:
             ret.append(linesub)
@@ -674,7 +685,7 @@ def load_yaml_file(uri):
     (c, b, r) = (None, None, None)
 
     try:
-        b = six.BytesIO()
+        b = BytesIO()
         c = pycurl.Curl()
         c.setopt(c.URL, uri)
         c.setopt(c.WRITEFUNCTION, b.write)
@@ -723,7 +734,7 @@ def section_from_yaml_file(uri, key = '__section', config_dir = None):
 def get_nb_workers(value, xmin = 1, default = False):
     r = None
 
-    if isinstance(value, six.string_types):
+    if isinstance(value, string_types):
         if value.lower() == 'auto':
             r = cpu_count()
         elif '%' in value:
@@ -734,10 +745,10 @@ def get_nb_workers(value, xmin = 1, default = False):
         elif value.digit():
             r = int(value)
 
-    if isinstance(value, six.integer_types):
+    if isinstance(value, integer_types):
         r = int(value)
 
-    if not isinstance(r, six.integer_types):
+    if not isinstance(r, integer_types):
         r = default
     elif r < xmin:
         r = xmin
@@ -747,7 +758,7 @@ def get_nb_workers(value, xmin = 1, default = False):
 def to_yaml(value, *args, **kwargs):
     has_qstr = False
 
-    if isinstance(value, (six.string_types, six.text_type)) \
+    if isinstance(value, (string_types, text_type)) \
        and RE_YAML_QSTR(value):
         has_qstr = True
 
@@ -758,7 +769,7 @@ def to_yaml(value, *args, **kwargs):
                   **kwargs)[1:-2]
 
     if not has_qstr \
-       and isinstance(r, (six.string_types, six.text_type)):
+       and isinstance(r, (string_types, text_type)):
         m = RE_YAML_QSTR(r)
         if m:
             return m.group(1)

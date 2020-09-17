@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright 2008-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.xys"""
+"""sonicprobe.libs.xys
 
-"""XIVO YAML Schema - v0.01
+XIVO YAML Schema - v0.01
 
 Copyright (C) 2008-2010 Avencall
 
@@ -147,7 +147,8 @@ import copy
 import re
 import logging
 import yaml
-import six
+
+from six import ensure_text, integer_types, iteritems, string_types, text_type
 
 from sonicprobe import helpers
 
@@ -228,7 +229,7 @@ class ContructorValidatorNode(object): # pylint: disable=useless-object-inherita
         return m.group(4)
 
     def __call__(self, loader, node):
-        if isinstance(node.value, six.string_types):
+        if isinstance(node.value, string_types):
             node.value = self._parser(node.value)
 
         return ValidatorNode(
@@ -244,7 +245,7 @@ def _construct_node(loader, node, base_tag):
     node = copy.copy(node) # bypass YAML anti recursion
     best_tag = base_tag
     best_fit = 0
-    for key, val in six.iteritems(loader.DEFAULT_TAGS):
+    for key, val in iteritems(loader.DEFAULT_TAGS):
         lenk = len(key)
         if lenk <= best_fit:
             continue
@@ -322,7 +323,7 @@ def add_validator(validator, base_tag, tag=None):
     if not tag:
         tag = u'!~' + validator.__name__
 
-    for xid, opts in six.iteritems(_VALIDATOR_MODES):
+    for xid, opts in iteritems(_VALIDATOR_MODES):
         mtag = "%s%s" % (tag, xid)
 
         yaml.add_constructor(mtag,
@@ -445,10 +446,10 @@ def isFloat(nstr, schema): # pylint: disable=unused-argument
     """
     !~~isFloat
     """
-    if isinstance(nstr, (float, six.integer_types)):
+    if isinstance(nstr, (float, integer_types)):
         return True
 
-    if not isinstance(nstr, six.string_types):
+    if not isinstance(nstr, string_types):
         return False
 
     try:
@@ -466,7 +467,7 @@ def digit(nstr, schema): # pylint: disable=unused-argument
     """
     if isinstance(nstr, int):
         nstr = str(nstr)
-    elif not isinstance(nstr, six.string_types):
+    elif not isinstance(nstr, string_types):
         return False
 
     return nstr.isdigit()
@@ -476,11 +477,11 @@ def uint(nstr, schema): # pylint: disable=unused-argument
     """
     !~~uint
     """
-    if isinstance(nstr, six.string_types):
+    if isinstance(nstr, string_types):
         if not nstr.isdigit():
             return False
         nstr = int(nstr)
-    elif not isinstance(nstr, six.integer_types):
+    elif not isinstance(nstr, integer_types):
         return False
 
     return nstr > 0
@@ -559,7 +560,7 @@ def _qualify_map(key, content):
     _value_ is decorated in an Optional/OptionalNull/Mandatory tuple.
     This function undo the decoration when necessary.
     """
-    if not isinstance(key, six.string_types):
+    if not isinstance(key, string_types):
         return key, content
 
     min_len  = None
@@ -614,7 +615,7 @@ def _transschema(x):
         return x.__class__(_transschema(x[0]), *x[1:])
 
     if isinstance(x, dict):
-        return dict((_qualify_map(key, _transschema(val)) for key, val in six.iteritems(x)))
+        return dict((_qualify_map(key, _transschema(val)) for key, val in iteritems(x)))
 
     if isinstance(x, list):
         return list(map(_transschema, x))
@@ -674,7 +675,7 @@ def _validate_dict(document, schema):
     optionalnull = {}
     mandatory = []
 
-    for key, schema_val in six.iteritems(schema):
+    for key, schema_val in iteritems(schema):
         if isinstance(key, ValidatorNode):
             if key.mode == 'mandatory':
                 mandatory.append((key, schema_val))
@@ -694,7 +695,7 @@ def _validate_dict(document, schema):
         if isinstance(key, ValidatorNode):
             nb = 0
             rm = []
-            for doc_key, doc_val in six.iteritems(doc_copy):
+            for doc_key, doc_val in iteritems(doc_copy):
                 if not validate(doc_key, key, False):
                     continue
 
@@ -763,7 +764,7 @@ def _validate_dict(document, schema):
         nb = 0
         rm = []
 
-        for doc_key, doc_val in six.iteritems(doc_copy):
+        for doc_key, doc_val in iteritems(doc_copy):
             if not validate(doc_key, key, False):
                 continue
 
@@ -792,7 +793,7 @@ def _validate_dict(document, schema):
             del doc_copy[x]
         continue
 
-    for key, doc_val in six.iteritems(doc_copy):
+    for key, doc_val in iteritems(doc_copy):
         schema_val = optional.get(key, Nothing)
         if schema_val is Nothing:
             LOG.error("forbidden key %s in document", key)
@@ -839,7 +840,7 @@ def _validate_list(document, schema):
         elif isinstance(schema[0], dict):
             tmp = {}
             for x in schema:
-                for key, val in six.iteritems(x):
+                for key, val in iteritems(x):
                     tmp[key] = val
             if not validate(elt, tmp):
                 return False
@@ -875,10 +876,10 @@ def validate(document, schema, log_qualifier = True):
         return helpers.is_scalar(document)
 
     # scalar
-    if isinstance(schema, six.text_type):
-        schema = six.ensure_text(schema)
-    if isinstance(document, six.text_type):
-        document = six.ensure_text(document, 'utf8')
+    if isinstance(schema, text_type):
+        schema = ensure_text(schema)
+    if isinstance(document, text_type):
+        document = ensure_text(document, 'utf8')
     if schema.__class__ != document.__class__:
         LOG.error("wanted a %s, got a %s",
                   schema.__class__.__name__,

@@ -12,7 +12,7 @@ except ImportError:
 
 from logging.handlers import SMTPHandler
 
-import six
+from six import PY2, itervalues
 
 
 class QueueSMTPHandler(SMTPHandler):
@@ -22,7 +22,7 @@ class QueueSMTPHandler(SMTPHandler):
         self.logger_name = logger_name
         self._timeout    = timeout
 
-        if six.PY2:
+        if PY2:
             SMTPHandler.__init__(self, mailhost, fromaddr, toaddrs, subject, credentials, secure)
         else:
             SMTPHandler.__init__(self, mailhost, fromaddr, toaddrs, subject, credentials, secure, timeout)
@@ -48,7 +48,7 @@ class QueueSMTPHandler(SMTPHandler):
         queues      = dict(self.queues)
         self.queues = {}
 
-        for records in six.itervalues(queues):
+        for records in itervalues(queues):
             msg     = ""
             record  = None
 

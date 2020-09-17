@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright 2007-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.anysql"""
+"""sonicprobe.libs.anysql
 
-"""DBAPI Helper using URI to create talk to various DB
+DBAPI Helper using URI to create talk to various DB
 
 Copyright (C) 2007-2010  Avencall
 
@@ -13,7 +13,9 @@ WARNING: this module is not DBAPI 2.0 compliant by itself
 
 import importlib
 import logging
-import six
+
+from six import ensure_text, iteritems
+
 from sonicprobe.libs import urisup
 
 __uri_create_methods = {}
@@ -57,7 +59,7 @@ def qmark_to_format(query, encoding = None):
     if not encoding:
         return r
 
-    return six.ensure_text(r, encoding)
+    return ensure_text(r, encoding)
 
 
 class cursor(object): # pylint: disable=useless-object-inheritance
@@ -98,7 +100,7 @@ class cursor(object): # pylint: disable=useless-object-inheritance
             return list.__getitem__(self, self.__col2idx_map[k])
         def iteritems(self):
             return ((k, list.__getitem__(self, pos))
-                    for (k, pos) in six.iteritems(self.__col2idx_map))
+                    for (k, pos) in iteritems(self.__col2idx_map))
 
 
     def __init__(self, conn, methods, log_reconnect = False):

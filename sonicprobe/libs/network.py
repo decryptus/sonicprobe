@@ -6,7 +6,8 @@
 import re
 import socket
 import struct
-import six
+
+from six import ensure_binary, ensure_str, ensure_text, integer_types, string_types, text_type as stext_type
 
 from sonicprobe.helpers import maketrans
 
@@ -53,10 +54,10 @@ RE_MAC_ADDRESS          = re.compile(r'^([A-F0-9]{2}:){5}([A-F0-9]{2})$', re.I).
 
 
 def __all_in(s, charset):
-    if not isinstance(s, six.text_type):
+    if not isinstance(s, stext_type):
         s = str(s)
     else:
-        s = six.ensure_str(s, 'utf8')
+        s = ensure_str(s, 'utf8')
     return not s.translate(*maketrans(BYTES_VAL, charset))
 
 def __split_sz(s, n):
@@ -75,10 +76,10 @@ def normalize_ipv4_dotdec(addr):
         return False
 
 def valid_bitmask_ipv4(bit):
-    if isinstance(bit, six.integer_types):
+    if isinstance(bit, integer_types):
         bit = str(bit)
 
-    if not isinstance(bit, six.string_types):
+    if not isinstance(bit, string_types):
         return False
 
     return bit.isdigit() and 0 < int(bit) < 33
@@ -98,7 +99,7 @@ def valid_ipv4(addr):
         return False
 
 def valid_ipv4_dotdec(potential_ipv4):
-    if not isinstance(potential_ipv4, six.string_types):
+    if not isinstance(potential_ipv4, string_types):
         return False
 
     if potential_ipv4[0] not in (HEXDIG + "xX") \
@@ -126,7 +127,7 @@ def valid_ipv6_h16(h16):
         return False
 
 def valid_ipv6_right(right_v6):
-    if not isinstance(right_v6, six.string_types):
+    if not isinstance(right_v6, string_types):
         return False
 
     if right_v6 == '':
@@ -153,7 +154,7 @@ def valid_ipv6_right(right_v6):
     return h16_count + len(array_v6)
 
 def valid_ipv6_left(left_v6):
-    if not isinstance(left_v6, six.string_types):
+    if not isinstance(left_v6, string_types):
         return False
 
     if left_v6 == '':
@@ -171,7 +172,7 @@ def valid_ipv6_left(left_v6):
     return len(array_v6)
 
 def valid_ipv6_address(potential_ipv6):
-    if not isinstance(potential_ipv6, six.string_types):
+    if not isinstance(potential_ipv6, string_types):
         return False
 
     sep_pos     = potential_ipv6.find('::')
@@ -194,7 +195,7 @@ def valid_ipv6_address(potential_ipv6):
     return False
 
 def parse_ipv4_cidr(cidr):
-    if not isinstance(cidr, six.string_types):
+    if not isinstance(cidr, string_types):
         return False
 
     r = cidr.split('/', 1)
@@ -207,39 +208,39 @@ def parse_ipv4_cidr(cidr):
     return r
 
 def encode_idn(value, text_type = False):
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, string_types):
         return False
 
-    if not isinstance(value, six.text_type):
-        value = six.ensure_str(value)
+    if not isinstance(value, stext_type):
+        value = ensure_str(value)
 
     if text_type:
-        return six.ensure_text(value.encode('idna'))
+        return ensure_text(value.encode('idna'))
 
-    return six.ensure_binary(value.encode('idna'))
+    return ensure_binary(value.encode('idna'))
 
 def decode_idn(value):
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, string_types):
         return False
 
-    value = six.ensure_binary(value)
+    value = ensure_binary(value)
 
     try:
         value = value.decode('idna')
     except UnicodeDecodeError:
         pass
 
-    return six.ensure_text(value)
+    return ensure_text(value)
 
 def valid_domain_part(domain_part):
-    if isinstance(domain_part, six.string_types) \
+    if isinstance(domain_part, string_types) \
        and RE_DOMAIN_PART(domain_part):
         return True
 
     return False
 
 def valid_domain(domain):
-    if isinstance(domain, six.string_types) \
+    if isinstance(domain, string_types) \
        and len(domain) < 256 \
        and RE_DOMAIN(domain):
         return True
@@ -247,7 +248,7 @@ def valid_domain(domain):
     return False
 
 def valid_domain_tld(domain_tld):
-    if isinstance(domain_tld, six.string_types) \
+    if isinstance(domain_tld, string_types) \
        and len(domain_tld) < 256 \
        and RE_DOMAIN_TLD(domain_tld):
         return True
@@ -255,7 +256,7 @@ def valid_domain_tld(domain_tld):
     return False
 
 def valid_sub_domain_tld(sub_domain_tld):
-    if isinstance(sub_domain_tld, six.string_types) \
+    if isinstance(sub_domain_tld, string_types) \
        and len(sub_domain_tld) < 256 \
        and RE_SUB_DOMAIN_TLD(sub_domain_tld):
         return True
@@ -290,7 +291,7 @@ def parse_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
     r = {'domain':   domain,
          'wildcard': True}
 
-    if not isinstance(r['domain'], six.string_types):
+    if not isinstance(r['domain'], string_types):
         return False
 
     if r['domain'].startswith('*.'):
@@ -322,7 +323,7 @@ def valid_port_number(port):
         return False
 
 def valid_email_localpart(localpart):
-    if isinstance(localpart, six.string_types) \
+    if isinstance(localpart, string_types) \
        and 1 <= len(localpart) <= 64 \
        and RE_EMAIL_LOCALPART(localpart):
         return True
@@ -330,7 +331,7 @@ def valid_email_localpart(localpart):
     return False
 
 def valid_email_address_literal(address, host_mask = MASK_EMAIL_HOST_ALL):
-    if not isinstance(address, six.string_types) or address == '':
+    if not isinstance(address, string_types) or address == '':
         return False
 
     if address[0] == '[' and address[-1] == ']':
@@ -375,7 +376,7 @@ def valid_email_address_literal(address, host_mask = MASK_EMAIL_HOST_ALL):
     return True
 
 def valid_email(email, host_mask = MASK_EMAIL_HOST_ALL):
-    if not isinstance(email, six.string_types) \
+    if not isinstance(email, string_types) \
        or len(email) > 320:
         return False
 
@@ -393,7 +394,7 @@ def valid_email(email, host_mask = MASK_EMAIL_HOST_ALL):
     return True
 
 def normalize_mac_address(macaddr):
-    if not isinstance(macaddr, six.string_types):
+    if not isinstance(macaddr, string_types):
         return False
 
     m = RE_MAC_ADDR_NORMALIZE(macaddr.upper())
@@ -403,7 +404,7 @@ def normalize_mac_address(macaddr):
     return ':'.join([('%02X' % int(s, 16)) for s in m])
 
 def valid_mac_address(macaddr):
-    if isinstance(macaddr, six.string_types) \
+    if isinstance(macaddr, string_types) \
        and RE_MAC_ADDRESS(macaddr) \
        and macaddr != '00:00:00:00:00:00':
         return True

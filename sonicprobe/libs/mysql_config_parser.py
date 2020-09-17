@@ -18,7 +18,8 @@ try:
 except ImportError:
     from six import StringIO
 
-import six
+from six import PY2, string_types
+
 import semantic_version
 
 MYSQL_DEFAULT_HOST     = 'localhost'
@@ -103,7 +104,7 @@ class MySQLConfigParser(ConfigParser):
 
     @staticmethod
     def valid_filename(filename):
-        if isinstance(filename, six.string_types) and MySQLConfigParser.RE_INCLUDE_FILE(filename):
+        if isinstance(filename, string_types) and MySQLConfigParser.RE_INCLUDE_FILE(filename):
             return True
 
         return False
@@ -117,7 +118,7 @@ class MySQLConfigParser(ConfigParser):
         return int(ret)
 
     def read(self, filenames, encoding=None): # pylint: disable=arguments-differ
-        if isinstance(filenames, six.string_types):
+        if isinstance(filenames, string_types):
             filenames = [filenames]
 
         file_ok = []
@@ -125,7 +126,7 @@ class MySQLConfigParser(ConfigParser):
             if self.valid_filename(os.path.basename(filename)):
                 file_ok.append(filename)
 
-        if six.PY2:
+        if PY2:
             return ConfigParser.read(self, file_ok)
 
         return ConfigParser.read(self, file_ok, encoding) # pylint: disable=too-many-function-args
@@ -134,7 +135,7 @@ class MySQLConfigParser(ConfigParser):
         return ConfigParser.readfp(self, MySQLConfigParserFilter(fp), filename)
 
     def read_file(self, f, source=None):
-        if six.PY2:
+        if PY2:
             return ConfigParser.readfp(self, MySQLConfigParserFilter(f), source)
 
         return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source) # pylint: disable=no-member

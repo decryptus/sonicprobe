@@ -12,7 +12,7 @@ except ImportError:
 
 from logging.handlers import SMTPHandler
 
-import six
+from six import itervalues
 
 
 class QueueSMTPHandler(SMTPHandler):
@@ -43,7 +43,7 @@ class QueueSMTPHandler(SMTPHandler):
         queue       = dict(self.queue)
         self.queue  = {}
 
-        for records in six.itervalues(queue):
+        for records in itervalues(queue):
             msg     = ""
             record  = None
 

@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 # Copyright 2007-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.urisup"""
+"""sonicprobe.libs.urisup
 
-"""Supplementary functions useful to play with URI - very very close to RFC 3986
+Supplementary functions useful to play with URI - very very close to RFC 3986
 
 Copyright (C) 2007-2010  Avencall
 
 """
 
 import re
-import six
+
+from six import PY3, ensure_str, ensure_text, integer_types, text_type
+from six.moves.urllib.parse import quote, unquote
 
 from sonicprobe.libs.network import valid_ipv4_dotdec, valid_ipv6_address
 
@@ -41,7 +43,7 @@ def __allow_to_encdct(charset):
     return charset.replace('%','')
 
 def __maketrans(chars, charlist):
-    if six.PY3:
+    if PY3:
         return (chars.maketrans('', '', charlist),)
     return (chars, charlist)
 
@@ -73,10 +75,10 @@ AUTHORITY_HOST = 2
 AUTHORITY_PORT = 3
 
 def __all_in(s, charset):
-    if not isinstance(s, six.text_type):
+    if not isinstance(s, text_type):
         s = str(s)
     else:
-        s = six.ensure_str(s, 'utf8')
+        s = ensure_str(s, 'utf8')
     return not s.translate(*__maketrans(BYTES_VAL, charset))
 
 def __split_sz(s, n):
@@ -148,7 +150,7 @@ def pct_decode(s):
     if s is None:
         return None
 
-    return six.moves.urllib.parse.unquote(s)
+    return unquote(s)
 
 def pct_encode(s, encdct):
     """
@@ -164,7 +166,7 @@ def pct_encode(s, encdct):
     if s is None:
         return None
 
-    return six.moves.urllib.parse.quote(s, safe = encdct)
+    return quote(s, safe = encdct)
 
 def query_elt_decode(s):
     """
@@ -319,7 +321,7 @@ def basic_urisplit(uri):
     >>> basic_urisplit("scheme://authority/path?query#fragment")
     ('scheme', 'authority', '/path', 'query', 'fragment')
     """
-    p = RFC3986_MATCHER(six.ensure_text(uri)).groups()
+    p = RFC3986_MATCHER(ensure_text(uri)).groups()
     return (p[1], p[3], p[4], p[6], p[8])
 
 def uri_split_tree(uri):
@@ -369,24 +371,24 @@ def uri_tree_normalize(uri_tree):
     scheme, authority_raw, path, query_raw, fragment = uri_tree
     authority = []
     query     = []
-    scheme    = six.ensure_str(scheme) if scheme else None
+    scheme    = ensure_str(scheme) if scheme else None
 
     if authority_raw:
         empty = True
         for x in authority_raw:
-            if isinstance(x, six.integer_types):
+            if isinstance(x, integer_types):
                 empty = False
                 authority.append(x)
             elif bool(x):
                 empty = False
-                authority.append(six.ensure_str(x))
+                authority.append(ensure_str(x))
             else:
                 authority.append(x)
 
         if empty:
             authority = None
 
-    path = six.ensure_str(path) if path else None
+    path = ensure_str(path) if path else None
 
     if query_raw:
         for x in query_raw:
@@ -395,22 +397,22 @@ def uri_tree_normalize(uri_tree):
 
             if bool(x[0]):
                 add = True
-                if isinstance(x[0], six.integer_types):
+                if isinstance(x[0], integer_types):
                     y[0] = x[0]
                 else:
-                    y[0] = six.ensure_str(x[0])
+                    y[0] = ensure_str(x[0])
 
             if bool(x[1]):
                 add = True
-                if isinstance(x[1], six.integer_types):
+                if isinstance(x[1], integer_types):
                     y[1] = x[1]
                 else:
-                    y[1] = six.ensure_str(x[1])
+                    y[1] = ensure_str(x[1])
 
             if add:
                 query.append(y)
 
-    fragment = six.ensure_str(fragment) if fragment else None
+    fragment = ensure_str(fragment) if fragment else None
 
     return (scheme, authority or None, path, query or None, fragment)
 
@@ -552,7 +554,7 @@ def uri_tree_encode(uri_tree, type_host = HOST_REG_NAME):
             passwd = pct_encode(passwd, PASSWD_ENCDCT)
         if host and type_host == HOST_REG_NAME:
             host = pct_encode(host, REG_NAME_ENCDCT)
-        if isinstance(port, six.integer_types):
+        if isinstance(port, integer_types):
             port = str(port)
         authority = (user, passwd, host, port)
     if path:

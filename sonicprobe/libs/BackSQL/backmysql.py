@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 # Copyright 2007-2019 The Wazo Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.BackSQL.backmysql"""
+"""sonicprobe.libs.BackSQL.backmysql
 
-"""Backend support for MySQL for anysql
+Backend support for MySQL for anysql
 
 Copyright (C) 2007-2010  Proformatique
 
 """
 
-import six
+from six import integer_types, iteritems, iterkeys, string_types
 
 import MySQLdb
 import MySQLdb.cursors
@@ -44,7 +44,7 @@ __conn_typemap = {
 }
 
 def __apply_types(params, typemap):
-    for k in six.iterkeys(typemap):
+    for k in iterkeys(typemap):
         if k in params:
             if typemap[k] is not None:
                 params[k] = typemap[k](params[k])
@@ -125,19 +125,19 @@ def connect_by_uri(uri):
 
     cparams = {}
 
-    for key, value in six.iteritems(__conn_typemap):
+    for key, value in iteritems(__conn_typemap):
         if key in params:
             cparams[key] = params[key]
             del params[key]
 
     conn =  MySQLdb.connect(**params)
 
-    for key, value in six.iteritems(cparams):
+    for key, value in iteritems(cparams):
         if value is None:
             continue
-        elif isinstance(value, six.string_types) and value:
+        elif isinstance(value, string_types) and value:
             conn.query("SET @@session.%s = '%s'" % (key, MySQLdb.escape_string(value))) # pylint: disable=no-member
-        elif isinstance(value, (bool, six.integer_types)):
+        elif isinstance(value, (bool, integer_types)):
             conn.query("SET @@session.%s = %d" % (key, value))
 
     return conn

@@ -4,7 +4,8 @@
 """sonicprobe.libs.gencert"""
 
 import os
-import six
+
+from six import string_types, iteritems
 
 from OpenSSL import crypto
 
@@ -66,7 +67,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
     def set_notbefore_days(self, days):
         if isinstance(days, int):
             days    = str(days)
-        if not isinstance(days, six.string_types) or not days.isdigit():
+        if not isinstance(days, string_types) or not days.isdigit():
             raise ValueError("Invalid days for notbefore: %r" % days)
         self.notbefore_days = int(days)
         return self
@@ -74,7 +75,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
     def set_notafter_days(self, days):
         if isinstance(days, int):
             days    = str(days)
-        if not isinstance(days, six.string_types) or not days.isdigit():
+        if not isinstance(days, string_types) or not days.isdigit():
             raise ValueError("Invalid days for notafter: %r" % days)
         self.notafter_days = int(days)
         return self
@@ -83,7 +84,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
         pkey = crypto.PKey()
         pkey.generate_key(self.crypto_type, self.bits)
 
-        if isinstance(export_file, six.string_types):
+        if isinstance(export_file, string_types):
             dpkey   = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
             if not os.path.exists(export_file):
@@ -98,13 +99,13 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
     def make_certreq(self, pkey, attributes, export_file=False):
         csr     = crypto.X509Req()
         subject = csr.get_subject()
-        for key, value in six.iteritems(attributes):
+        for key, value in iteritems(attributes):
             setattr(subject, key, value)
 
         csr.set_pubkey(pkey)
         csr.sign(pkey, self.digest_type)
 
-        if isinstance(export_file, six.string_types):
+        if isinstance(export_file, string_types):
             dcsr    = crypto.dump_certificate_request(crypto.FILETYPE_PEM, csr)
 
             if not os.path.exists(export_file):
@@ -126,7 +127,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
         crt.set_pubkey(csr.get_pubkey())
         crt.sign(ca_pkey, self.digest_type)
 
-        if isinstance(export_file, six.string_types):
+        if isinstance(export_file, string_types):
             dcrt    = crypto.dump_certificate(crypto.FILETYPE_PEM, crt)
 
             if not os.path.exists(export_file):
