@@ -172,6 +172,7 @@ def lock_pidfile_or_die(pidfile):
             fpid.write("%s\n" % pid)
         finally:
             fpid.close()
+        os.chmod(pid_write_file, 0o644)
         if not take_file_lock(pid_write_file, pidfile, "%s\n" % pid):
             sys.exit(1)
     except SystemExit:

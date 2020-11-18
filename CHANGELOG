@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.33) unstable; urgency=medium
+
+  * Fixed chmod on pidfile.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 18 Nov 2020 17:56:28 +0100
+
 python-sonicprobe (0.3.32) unstable; urgency=medium
 
   * Reviewed requirements.
