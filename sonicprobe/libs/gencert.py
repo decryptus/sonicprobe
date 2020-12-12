@@ -96,7 +96,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             f.close()
         return pkey
 
-    def make_certreq(self, pkey, attributes, export_file=False, san=None, key_usage=None, extended_key_usage=None):
+    def make_certreq(self, pkey, attributes, export_file=False, ca_crt=None, **kwargs):
         csr     = crypto.X509Req()
         subject = csr.get_subject()
         for key, value in iteritems(attributes):
@@ -105,26 +105,20 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
 
         extensions = []
 
-        if san:
-            altnames = ', '.join(san)
-            extensions.append(crypto.X509Extension(
-                ensure_binary('subjectAltName'),
-                False,
-                ensure_binary(altnames, encoding = 'ascii')))
+        for x in ('basicConstraints', 'keyUsage', 'extendedKeyUsage', 'subjectAltName', 'nsCertType'):
+            if x in kwargs:
+                extensions.append(crypto.X509Extension(
+                    ensure_binary(x),
+                    False,
+                    ensure_binary(', '.join(kwargs[x]), encoding = 'ascii')))
 
-        if key_usage:
-            usages = '. '.join(key_usage)
-            extensions.append(crypto.X509Extension(
-                ensure_binary('keyUsage'),
-                False,
-                ensure_binary(usages, encoding = 'ascii')))
-
-        if extended_key_usage:
-            usages = '. '.join(extended_key_usage)
-            extensions.append(crypto.X509Extension(
-                ensure_binary('extendedKeyUsage'),
-                False,
-                ensure_binary(usages, encoding = 'ascii')))
+        if ca_crt:
+            if 'subjectKeyIdentifier' in kwargs:
+                extensions.append(crypto.X509Extension(
+                    ensure_binary('subjectKeyIdentifier'),
+                    False,
+                    ensure_binary(', '.join(kwargs['subjectKeyIdentifier']), encoding = 'ascii'),
+                    subject = ca_crt))
 
         if extensions:
             csr.add_extensions(extensions)
