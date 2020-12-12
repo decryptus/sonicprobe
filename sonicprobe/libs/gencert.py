@@ -5,7 +5,7 @@
 
 import os
 
-from six import string_types, iteritems
+from six import ensure_binary, iteritems, string_types
 
 from OpenSSL import crypto
 
@@ -88,19 +88,46 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             dpkey   = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
             if not os.path.exists(export_file):
-                open(export_file, 'w').close()
+                open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'w')
+            f       = open(export_file, 'wb')
             f.writelines(dpkey)
             f.close()
         return pkey
 
-    def make_certreq(self, pkey, attributes, export_file=False):
+    def make_certreq(self, pkey, attributes, export_file=False, san=None, key_usage=None, extended_key_usage=None):
         csr     = crypto.X509Req()
         subject = csr.get_subject()
         for key, value in iteritems(attributes):
-            setattr(subject, key, value)
+            if value is not None:
+                setattr(subject, key, value)
+
+        extensions = []
+
+        if san:
+            altnames = ', '.join(san)
+            extensions.append(crypto.X509Extension(
+                ensure_binary('subjectAltName'),
+                False,
+                ensure_binary(altnames, encoding = 'ascii')))
+
+        if key_usage:
+            usages = '. '.join(key_usage)
+            extensions.append(crypto.X509Extension(
+                ensure_binary('keyUsage'),
+                False,
+                ensure_binary(usages, encoding = 'ascii')))
+
+        if extended_key_usage:
+            usages = '. '.join(extended_key_usage)
+            extensions.append(crypto.X509Extension(
+                ensure_binary('extendedKeyUsage'),
+                False,
+                ensure_binary(usages, encoding = 'ascii')))
+
+        if extensions:
+            csr.add_extensions(extensions)
 
         csr.set_pubkey(pkey)
         csr.sign(pkey, self.digest_type)
@@ -109,10 +136,10 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             dcsr    = crypto.dump_certificate_request(crypto.FILETYPE_PEM, csr)
 
             if not os.path.exists(export_file):
-                open(export_file, 'w').close()
+                open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'w')
+            f       = open(export_file, 'wb')
             f.writelines(dcsr)
             f.close()
         return csr
@@ -131,10 +158,10 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             dcrt    = crypto.dump_certificate(crypto.FILETYPE_PEM, crt)
 
             if not os.path.exists(export_file):
-                open(export_file, 'w').close()
+                open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'w')
+            f       = open(export_file, 'wb')
             f.writelines(dcrt)
             f.close()
         return crt
