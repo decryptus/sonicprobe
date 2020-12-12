@@ -20,6 +20,15 @@ DIGEST  = ('md2',
            'sha384',
            'sha512')
 
+X509_TYPE_NAMES = ('basicConstraints',
+                   'keyUsage',
+                   'extendedKeyUsage',
+                   'subjectAltName',
+                   'nsCertType')
+
+class CriticalExt(list):
+    pass
+
 class GenCert(object): # pylint: disable=useless-object-inheritance
     def __init__(self, bits=None, crypto_type=None, digest_type=None, notbefore_days=None, notafter_days=None):
         self.bits           = 2048
@@ -96,7 +105,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             f.close()
         return pkey
 
-    def make_certreq(self, pkey, attributes, export_file=False, ca_crt=None, **kwargs):
+    def make_certreq(self, pkey, attributes, export_file=False, **kwargs):
         csr     = crypto.X509Req()
         subject = csr.get_subject()
         for key, value in iteritems(attributes):
@@ -105,20 +114,28 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
 
         extensions = []
 
-        for x in ('basicConstraints', 'keyUsage', 'extendedKeyUsage', 'subjectAltName', 'nsCertType'):
+        for x in X509_TYPE_NAMES:
             if x in kwargs:
                 extensions.append(crypto.X509Extension(
                     ensure_binary(x),
-                    False,
+                    isinstance(kwargs[x], CriticalExt),
                     ensure_binary(', '.join(kwargs[x]), encoding = 'ascii')))
 
-        if ca_crt:
+        if kwargs.get('subject'):
             if 'subjectKeyIdentifier' in kwargs:
                 extensions.append(crypto.X509Extension(
                     ensure_binary('subjectKeyIdentifier'),
-                    False,
+                    isinstance(kwargs['subjectKeyIdentifier'], CriticalExt),
                     ensure_binary(', '.join(kwargs['subjectKeyIdentifier']), encoding = 'ascii'),
-                    subject = ca_crt))
+                    subject = kwargs['subject']))
+
+        if kwargs.get('issuer'):
+            if 'authorityKeyIdentifier' in kwargs:
+                extensions.append(crypto.X509Extension(
+                    ensure_binary('authorityKeyIdentifier'),
+                    isinstance(kwargs['authorityKeyIdentifier'], CriticalExt),
+                    ensure_binary(', '.join(kwargs['authorityKeyIdentifier']), encoding = 'ascii'),
+                    issuer = kwargs['issuer']))
 
         if extensions:
             csr.add_extensions(extensions)

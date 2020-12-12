@@ -1,3 +1,15 @@
+python-sonicprobe (0.3.38) unstable; urgency=medium
+
+  * Fixed X509 extension authorityKeyIdentifier in GenCert.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 12 Dec 2020 18:29:19 +0100
+
+python-sonicprobe (0.3.37) unstable; urgency=medium
+
+  * Added X509 extension authorityKeyIdentifier in GenCert.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 12 Dec 2020 15:19:56 +0100
+
 python-sonicprobe (0.3.36) unstable; urgency=medium
 
   * Added basicConstraints, nsCertType and subjectKeyIdentifier in GenCert.
