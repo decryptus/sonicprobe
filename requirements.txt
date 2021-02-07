@@ -7,5 +7,6 @@ PyYAML>=3.10
 #pyserial
 Unidecode
 semantic_version
+setuptools>=36.2.5
 six>=1.13.0
 #xmodem
