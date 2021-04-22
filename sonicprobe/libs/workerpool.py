@@ -100,6 +100,8 @@ class WorkerThread(threading.Thread):
                     cb(ret)
             except Exception as e:
                 LOG.exception("unexpected error: %r", e)
+            except SystemExit as e:
+                LOG.error("system exit: %r", e)
             finally:
                 if complete:
                     complete(ret)
@@ -231,6 +233,22 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             w.setName(self.get_name(xid, name))
             w.start()
 
+    def _run(self, target, _callback_ = None, _name_ = None, _complete_ = None, _qpriority_ = None, *args, **kwargs):
+        self.count_lock.acquire()
+        if not self.workers:
+            self.count_lock.release()
+            self.add(name = _name_)
+        else:
+            self.count_lock.release()
+
+        if not self.is_qpriority:
+            self.tasks.put((target, _callback_, _name_, _complete_, args, kwargs))
+            return
+
+        if _qpriority_ is None:
+            _qpriority_ = time.time()
+        self.tasks.put((_qpriority_, (target, _callback_, _name_, _complete_, args, kwargs)))
+
     def run(self, target, callback = None, name = None, complete = None, qpriority = None, *args, **kargs):
         """
         Start task.
@@ -240,34 +258,22 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         @complete: complete executed after target in finally
         @qpriority: priority for PriorityQueue
         """
-        self.count_lock.acquire()
-        if not self.workers:
-            self.count_lock.release()
-            self.add(name = name)
-        else:
-            self.count_lock.release()
-
-        if not self.is_qpriority:
-            self.tasks.put((target, callback, name, complete, args, kargs))
-            return
-
-        if qpriority is None:
-            qpriority = time.time()
-        self.tasks.put((qpriority, (target, callback, name, complete, args, kargs)))
+        self._run(target,
+                  _callback_  = callback,
+                  _name_      = name,
+                  _complete_  = complete,
+                  _qpriority_ = qpriority,
+                  *args,
+                  **kargs)
 
     def run_args(self, target, *args, **kwargs):
-        callback  = kwargs.pop('_callback_', None)
-        name      = kwargs.pop('_name_', None)
-        complete  = kwargs.pop('_complete_', None)
-        qpriority = kwargs.pop('_qpriority_', None)
-
-        self.run(target    = target,
-                 callback  = callback,
-                 name      = name,
-                 complete  = complete,
-                 qpriority = qpriority,
-                 *args,
-                 **kwargs)
+        self._run(target      = target,
+                  _callback_  = kwargs.pop('_callback_', None),
+                  _name_      = kwargs.pop('_name_', None),
+                  _complete_  = kwargs.pop('_complete_', None),
+                  _qpriority_ = kwargs.pop('_qpriority_', None),
+                  *args,
+                  **kwargs)
 
     def killall(self, wait = None):
         """
