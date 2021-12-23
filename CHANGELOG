@@ -1,3 +1,15 @@
+python-sonicprobe (0.3.43) unstable; urgency=medium
+
+  * Added function sonicprobe.helpers.cmp.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Thu, 23 Dec 2021 19:08:12 +0100
+
+python-sonicprobe (0.3.42) unstable; urgency=medium
+
+  * Reviewed requirements.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 25 Sep 2021 02:03:23 +0200
+
 python-sonicprobe (0.3.41) unstable; urgency=medium
 
   * Reviewed sonicprobe.libs.workerpool.

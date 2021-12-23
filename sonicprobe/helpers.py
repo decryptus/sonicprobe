@@ -211,6 +211,9 @@ def unidecoder(value):
 
     return value
 
+def cmp(x, y):
+    return (x > y) - (x < y)
+
 def maketrans(chars, charlist):
     if PY3:
         return (chars.maketrans('', '', charlist),)

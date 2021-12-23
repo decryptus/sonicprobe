@@ -1,11 +1,11 @@
-httpdis>=0.6.18
+httpdis>=0.6.20
 pyOpenSSL
 python-magic
 psutil>=2.1
 pycurl
 PyYAML>=3.10
 #pyserial
-Unidecode
+Unidecode<=1.2.0
 semantic_version
 setuptools>=36.2.5
 six>=1.13.0
