@@ -381,6 +381,14 @@ def enum(nstr, schema, *symbols): # pylint: disable-msg=W0613
     return nstr in symbols
 
 
+def ienum(nstr, schema, *symbols): # pylint: disable-msg=W0613
+    """
+    !~~ienum(symb1[,symb2[,...]])
+    Like enum but case insensitive
+    """
+    return nstr.lower() in (symbol.lower() for symbol in symbols)
+
+
 def seqlen(lst, schema, min_len, max_len): # pylint: disable-msg=W0613
     """
     !~~seqlen(min,max)
@@ -538,6 +546,7 @@ def regex(val, schema, name = None): # pylint: disable-msg=W0613
 _add_parameterized_validator_internal(seqlen, u'!!seq')
 _add_parameterized_validator_internal(between, u'!!int')
 _add_parameterized_validator_internal(enum, u'!!str')
+_add_parameterized_validator_internal(ienum, u'!!str')
 add_validator(fixed, u'!!str', '!~~fixedStr')
 add_validator(fixed, u'!!int', '!~~fixedInt') # XXX: validation tag overloading?
 _add_validator_internal(startswith, u'!!str')
