@@ -57,7 +57,7 @@ BUFFER_SIZE    = 1 << 16
 ALPHANUM       = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
-RE_CRTL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
+RE_CTRL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
 RE_SPACE_CHARS = re.compile(r'\s\s+')
 RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
 
@@ -101,7 +101,7 @@ def clean_string(value):
     return RE_SPACE_CHARS.sub(' ', value.strip())
 
 def raw_string(value):
-    def repl_crtl_chars(match):
+    def repl_ctrl_chars(match):
         s = match.group()
         if PY2 and isinstance(s, str):
             return s.encode('string-escape')
@@ -113,7 +113,7 @@ def raw_string(value):
 
         return repr(s)[1:-1]
 
-    return RE_CRTL_CHARS.sub(repl_crtl_chars, value)
+    return RE_CTRL_CHARS.sub(repl_ctrl_chars, value)
 
 def normalize_string(value, case = None):
     if not is_print(value):
@@ -765,11 +765,18 @@ def to_yaml(value, *args, **kwargs):
        and RE_YAML_QSTR(value):
         has_qstr = True
 
-    r = dump_yaml([value],
-                  default_flow_style = None,
-                  default_style = '',
-                  allow_unicode = True,
-                  **kwargs)[1:-2]
+    if isinstance(value, (dict, list, tuple)):
+        r = dump_yaml(value,
+                      default_flow_style = None,
+                      default_style = '',
+                      allow_unicode = True,
+                      **kwargs)[0:-1]
+    else:
+        r = dump_yaml([value],
+                      default_flow_style = None,
+                      default_style = '',
+                      allow_unicode = True,
+                      **kwargs)[1:-2]
 
     if not has_qstr \
        and isinstance(r, (string_types, text_type)):
