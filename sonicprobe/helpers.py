@@ -56,10 +56,21 @@ BUFFER_SIZE    = 1 << 16
 
 ALPHANUM       = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+PUNCT          = frozenset(r'!"#$%&\'()*+, -./:;<=>?@[\]^_`{|}~')
 
 RE_CTRL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
 RE_SPACE_CHARS = re.compile(r'\s\s+')
 RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
+
+PASSWD_MASK_DIGIT = 1
+PASSWD_MASK_UPPER = 2
+PASSWD_MASK_LOWER = 4
+PASSWD_MASK_PUNCT = 256
+
+PASSWD_MASK_ALL = (PASSWD_MASK_DIGIT |
+                   PASSWD_MASK_UPPER |
+                   PASSWD_MASK_LOWER |
+                   PASSWD_MASK_PUNCT)
 
 
 def boolize(value):
@@ -127,6 +138,37 @@ def normalize_string(value, case = None):
     return unidecode.unidecode(
         clean_string(
             unicoder(value)))
+
+def password_check(value, min_len = 6, max_len = 20, mask = PASSWD_MASK_ALL):
+    if not is_scalar(value):
+        return False
+
+    v = ensure_text(value)
+    xlen = len(v)
+
+    if xlen < min_len:
+        raise ValueError("length should be at least " + min_len)
+
+    if xlen > max_len:
+        raise ValueError("length should be not be greater than " + max_len)
+
+    if mask & PASSWD_MASK_DIGIT:
+        if not any(char.isdigit() for char in v):
+            raise ValueError("password should have at least one numeral")
+
+    if mask & PASSWD_MASK_UPPER:
+        if not any(char.isupper() for char in v):
+            raise ValueError("password should have at least one uppercase letter")
+
+    if mask & PASSWD_MASK_LOWER:
+        if not any(char.islower() for char in v):
+            raise ValueError("password should have at least one lowercase letter")
+
+    if mask & PASSWD_MASK_PUNCT:
+        if not any(char in PUNCT for char in v):
+            raise ValueError("password should have at least one of punctuation")
+
+    return True
 
 def percent_to_float(value):
     if not isinstance(value, string_types):
