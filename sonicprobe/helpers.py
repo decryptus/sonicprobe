@@ -147,10 +147,10 @@ def password_check(value, min_len = 6, max_len = 20, mask = PASSWD_MASK_ALL):
     xlen = len(v)
 
     if xlen < min_len:
-        raise ValueError("length should be at least " + min_len)
+        raise ValueError("length should be at least %s" % min_len)
 
     if xlen > max_len:
-        raise ValueError("length should be not be greater than " + max_len)
+        raise ValueError("length should be not be greater than %s" % max_len)
 
     if mask & PASSWD_MASK_DIGIT:
         if not any(char.isdigit() for char in v):
