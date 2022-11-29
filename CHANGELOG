@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.50) unstable; urgency=medium
+
+  * Fixed urisup.pct_encode.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 29 Nov 2022 02:36:34 +0100
+
 python-sonicprobe (0.3.49) unstable; urgency=medium
 
   * Added libs/threading_udp_server.my.

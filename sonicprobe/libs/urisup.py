@@ -166,6 +166,9 @@ def pct_encode(s, encdct):
     if s is None:
         return None
 
+    if isinstance(s, (bool, float, integer_types)):
+        s = str(s)
+
     return quote(s, safe = encdct)
 
 def query_elt_decode(s):
