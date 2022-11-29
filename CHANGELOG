@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.51) unstable; urgency=medium
+
+  * Fixed MySQLConfigParserFilter iteration.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 29 Nov 2022 16:53:06 +0100
+
 python-sonicprobe (0.3.50) unstable; urgency=medium
 
   * Fixed urisup.pct_encode.

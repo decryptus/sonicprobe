@@ -149,6 +149,16 @@ class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inherita
         self.fp     = fp
         self._lines = []
 
+    def __iter__(self):
+        r = []
+        while True:
+            x = self.readline()
+            r.append(x)
+            if not x:
+                break
+
+        return iter(r)
+
     def readline(self):
         if self._lines:
             line = self._lines.pop(0)
