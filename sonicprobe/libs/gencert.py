@@ -33,7 +33,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
     def __init__(self, bits=None, crypto_type=None, digest_type=None, notbefore_days=None, notafter_days=None):
         self.bits           = 2048
         self.crypto_type    = crypto.TYPE_RSA
-        self.digest_type    = 'md5'
+        self.digest_type    = 'sha256'
         self.notbefore_days = 0
         self.notafter_days  = 365
 
@@ -101,7 +101,7 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'wb')
-            f.writelines(dpkey)
+            f.write(dpkey)
             f.close()
         return pkey
 
@@ -151,18 +151,21 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'wb')
-            f.writelines(dcsr)
+            f.write(dcsr)
             f.close()
         return csr
 
     def make_certificate(self, csr, ca, ca_pkey, serial, export_file=False):
         crt = crypto.X509()
+        crt.set_version(2)
         crt.set_serial_number(serial)
         crt.gmtime_adj_notBefore(86400 * self.notbefore_days)
         crt.gmtime_adj_notAfter(86400 * self.notafter_days)
         crt.set_issuer(ca.get_subject())
         crt.set_subject(csr.get_subject())
         crt.set_pubkey(csr.get_pubkey())
+        # The issuing application controls which CSR extensions it accepts.
+
         crt.sign(ca_pkey, self.digest_type)
 
         if isinstance(export_file, string_types):
@@ -173,6 +176,6 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
             os.chmod(export_file, 0o600)
 
             f       = open(export_file, 'wb')
-            f.writelines(dcrt)
+            f.write(dcrt)
             f.close()
         return crt

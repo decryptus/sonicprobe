@@ -17,19 +17,20 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
         self.__lock     = {}
         self.__updated  = {}
         self.__me       = threading.RLock()
-        self.__thread   = threading.currentThread()
+        self.__thread   = threading.current_thread()
         self.__locked   = None
         self.timeout    = timeout
 
     def _lock(self):
-        already_locked = self.__locked
-        if self.__locked and not self.try_lock(self.timeout):
-            raise RuntimeError("unable to lock")
-
-        return already_locked
+        owner = self.__locked
+        if owner is None or owner is threading.current_thread():
+            return True
+        if not self.try_lock(self.timeout):
+            raise RuntimeError('unable to lock')
+        return False
 
     def _unlock(self, already_locked):
-        if not already_locked and self.__locked == self.__thread:
+        if not already_locked:
             self.try_unlock()
 
     def add(self, name, lock = False):
@@ -98,27 +99,27 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
     def iteritems(self, name):
         already_locked = self._lock()
-
-        for item in list(self.__data[name].items()):
-            yield item
-
-        self._unlock(already_locked)
+        try:
+            snapshot = list(self.__data[name].items())
+        finally:
+            self._unlock(already_locked)
+        return iter(snapshot)
 
     def iterkeys(self, name):
         already_locked = self._lock()
-
-        for key in list(self.__data[name].keys()):
-            yield key
-
-        self._unlock(already_locked)
+        try:
+            snapshot = list(self.__data[name].keys())
+        finally:
+            self._unlock(already_locked)
+        return iter(snapshot)
 
     def itervalues(self, name):
         already_locked = self._lock()
-
-        for value in list(self.__data[name].values()):
-            yield value
-
-        self._unlock(already_locked)
+        try:
+            snapshot = list(self.__data[name].values())
+        finally:
+            self._unlock(already_locked)
+        return iter(snapshot)
 
     def has_key(self, name, key, lock = False):
         already_locked = self._lock()
@@ -162,7 +163,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
         if lock:
             self.__lock[name].acquire()
-        if key in self.__data:
+        if name in self.__data and key in self.__data[name]:
             del self.__data[name][key]
         self.__updated[name] = time.time()
         if lock:
@@ -257,6 +258,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
         if not exists:
             self.add(name, lock)
         elif not self.exists(name, lock):
+            self._unlock(already_locked)
             return None
 
         try:
@@ -277,6 +279,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
         if not exists:
             self.add(name, False)
         elif not self.exists(name, False):
+            self._unlock(already_locked)
             return None
 
         try:
@@ -291,6 +294,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
                 remaining = endtime - time.time()
                 if remaining <= 0:
                     return 0
+                time.sleep(min(0.01, remaining))
         except KeyError:
             if not exists:
                 raise
@@ -322,7 +326,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
     def lock(self, blocking = True):
         if self.__me.acquire(blocking):
-            self.__locked = threading.currentThread()
+            self.__locked = threading.current_thread()
             return True
 
         return None
@@ -333,7 +337,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
         while True:
             if self.__me.acquire(False):
-                self.__locked = threading.currentThread()
+                self.__locked = threading.current_thread()
                 return True
             if timeout is None:
                 return False
@@ -341,6 +345,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
             remaining = endtime - time.time()
             if remaining <= 0:
                 return 0
+            time.sleep(min(0.01, remaining))
 
     def try_unlock(self):
         try:

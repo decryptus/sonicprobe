@@ -398,96 +398,84 @@ def file_w_tmp(lines, path = None, mode = 'w+'):
     return path
 
 def read_large_file(src, dst = None, buffer_size = 8192):
-    r           = b""
-    o           = None
+    if buffer_size < 1:
+        raise ValueError('buffer_size must be positive')
+    output = open(dst, 'wb') if dst else None
+    source = None
+    chunks = []
+    try:
+        source = src if hasattr(src, 'read') else open(src, 'rb')
+        while True:
+            data = ensure_binary(source.read(buffer_size))
+            if not data:
+                break
+            if output:
+                output.write(data)
+            else:
+                chunks.append(data)
+        return True if output else b''.join(chunks)
+    finally:
+        if source:
+            source.close()
+        if output:
+            output.close()
 
-    if dst:
-        o = open(dst, 'wb')
-
-    if not hasattr(src, 'read'):
-        f = open(src, 'rb')
-    else:
-        f = src
-
-    while True:
-        data = ensure_binary(f.read(buffer_size))
-        if not data:
-            break
-        if o:
-            o.write(data)
-        else:
-            r += data
-
-    if f:
-        f.close()
-
-    if o:
-        o.close()
-        return True
-
-    return r
 
 def base64_encode_file(src, dst = None, chunk_size = 8192):
-    r           = ""
-    o           = None
-    chunk_size -= chunk_size % 3 # align to multiples of 3
+    if chunk_size < 3:
+        raise ValueError('chunk_size must be at least 3')
+    chunk_size -= chunk_size % 3
+    output = open(dst, 'w') if dst else None
+    source = None
+    chunks = []
+    try:
+        source = src if hasattr(src, 'read') else open(src, 'rb')
+        while True:
+            data = source.read(chunk_size)
+            if not data:
+                break
+            encoded = ensure_text(base64.b64encode(data))
+            if output:
+                output.write(encoded)
+            else:
+                chunks.append(encoded)
+        return True if output else ''.join(chunks)
+    finally:
+        if source:
+            source.close()
+        if output:
+            output.close()
 
-    if dst:
-        o = open(dst, 'w')
-
-    if not hasattr(src, 'read'):
-        f = open(src, 'rb')
-    else:
-        f = src
-
-    while True:
-        data = f.read(chunk_size)
-        if not data:
-            break
-        if o:
-            o.write(ensure_text(base64.b64encode(data)))
-        else:
-            r += ensure_text(base64.b64encode(data))
-
-    if f:
-        f.close()
-
-    if o:
-        o.close()
-        return True
-
-    return r
 
 def base64_decode_file(src, dst = None, chunk_size = 8192):
-    r           = b""
-    o           = None
-    chunk_size -= chunk_size % 4 # align to multiples of 4
+    if chunk_size < 4:
+        raise ValueError('chunk_size must be at least 4')
+    output = open(dst, 'wb') if dst else None
+    source = None
+    chunks = []
+    pending = b''
+    try:
+        source = src if hasattr(src, 'read') else open(src, 'rb')
+        while True:
+            data = source.read(chunk_size)
+            pending += b''.join(ensure_binary(data).split())
+            size = (len(pending) // 4) * 4 if data else len(pending)
+            if size:
+                decoded = base64.b64decode(pending[:size])
+                pending = pending[size:]
+                if output:
+                    output.write(decoded)
+                else:
+                    chunks.append(decoded)
+            if not data:
+                break
+        return True if output else b''.join(chunks)
+    finally:
+        if source:
+            source.close()
+        if output:
+            output.close()
 
-    if dst:
-        o = open(dst, 'wb')
-
-    if not hasattr(src, 'read'):
-        f = open(src, 'r')
-    else:
-        f = src
-
-    while True:
-        data = f.read(chunk_size)
-        if not data:
-            break
-        if o:
-            o.write(base64.b64decode(data))
-        else:
-            r += base64.b64decode(data)
-
-    if f:
-        f.close()
-
-    if o:
-        o.close()
-        return True
-
-    return r
 
 def touch(fname, times = None, exists = False):
     if exists:

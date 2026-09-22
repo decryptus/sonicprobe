@@ -171,6 +171,9 @@ class cursor(object): # pylint: disable=useless-object-inheritance
             else:
                 self.__dbapi2_cursor.execute(tmp_query, parameters)
         except Exception:
+            # SQL/constraint errors on a healthy connection must not discard it.
+            if self.__connection.is_connected():
+                raise
             # try to reconnect
             self.__connection.reconnect(tmp_query, self.__log_reconnect)
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
@@ -193,6 +196,8 @@ class cursor(object): # pylint: disable=useless-object-inheritance
         try:
             self.__dbapi2_cursor.executemany(tmp_query, seq_of_parameters)
         except Exception:
+            if self.__connection.is_connected():
+                raise
             self.__connection.reconnect(tmp_query, self.__log_reconnect)
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
 

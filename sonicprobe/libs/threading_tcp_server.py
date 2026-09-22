@@ -35,10 +35,11 @@ class KillableDynThreadingTCPServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingTCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        self.socket.settimeout(0.5)
 
         max_workers     = int(config.get('max_workers', 0))
-        max_requests    = int(config.get('max_requests'))
-        max_life_time   = int(config.get('max_life_time'))
+        max_requests    = int(config.get('max_requests', 0))
+        max_life_time   = int(config.get('max_life_time', 0))
 
         if max_workers < 1:
             max_workers = 1
@@ -68,6 +69,8 @@ class KillableDynThreadingTCPServer(socketserver.ThreadingTCPServer):
             self.workerpool.run(self.process_request_thread,
                                 **{'request': request,
                                    'client_address': client_address})
+        else:
+            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         LOG.debug("Exception happened during processing of request from: %r", client_address)
@@ -90,6 +93,7 @@ class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingTCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        self.socket.settimeout(0.5)
 
         self.worker_name   = name
 
@@ -117,7 +121,7 @@ class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
         for n in range(nb): # pylint: disable=unused-variable
             t = threading.Thread(target = self.process_request_thread,
                                  args   = (self,))
-            t.setName(threading._newname("%s:%%d" % tname)) # pylint: disable=protected-access
+            t.name = "%s:%s" % (tname, t.name)
             t.daemon = True
             t.start()
 
@@ -139,7 +143,10 @@ class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
                 except AttributeError:
                     return
             else:
-                socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get())
+                try:
+                    socketserver.ThreadingTCPServer.process_request_thread(self, *self.requests.get(True, 0.5))
+                except queue.Empty:
+                    continue
 
             LOG.debug("nb_requests: %d, max_requests: %d", nb_requests, self.max_requests)
             nb_requests += 1
@@ -157,6 +164,8 @@ class KillableThreadingTCPServer(socketserver.ThreadingTCPServer):
 
         if self.verify_request(request, client_address):
             self.requests.put((request, client_address))
+        else:
+            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         LOG.debug("Exception happened during processing of request from: %r", client_address)
