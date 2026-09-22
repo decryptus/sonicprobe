@@ -37,8 +37,8 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
         socketserver.ThreadingUDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
         max_workers     = int(config.get('max_workers', 0))
-        max_requests    = int(config.get('max_requests'))
-        max_life_time   = int(config.get('max_life_time'))
+        max_requests    = int(config.get('max_requests', 0))
+        max_life_time   = int(config.get('max_life_time', 0))
 
         if max_workers < 1:
             max_workers = 1
@@ -68,6 +68,8 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
             self.workerpool.run(self.process_request_thread,
                                 **{'request': request,
                                    'client_address': client_address})
+        else:
+            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         LOG.debug("Exception happened during processing of request from: %r", client_address)
@@ -117,7 +119,7 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
         for n in range(nb): # pylint: disable=unused-variable
             t = threading.Thread(target = self.process_request_thread,
                                  args   = (self,))
-            t.setName(threading._newname("%s:%%d" % tname)) # pylint: disable=protected-access
+            t.name = "%s:%s" % (tname, t.name)
             t.daemon = True
             t.start()
 
@@ -139,7 +141,10 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
                 except AttributeError:
                     return
             else:
-                socketserver.ThreadingUDPServer.process_request_thread(self, *self.requests.get())
+                try:
+                    socketserver.ThreadingUDPServer.process_request_thread(self, *self.requests.get(True, 0.5))
+                except queue.Empty:
+                    continue
 
             LOG.debug("nb_requests: %d, max_requests: %d", nb_requests, self.max_requests)
             nb_requests += 1
@@ -157,6 +162,8 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
 
         if self.verify_request(request, client_address):
             self.requests.put((request, client_address))
+        else:
+            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         LOG.debug("Exception happened during processing of request from: %r", client_address)

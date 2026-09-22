@@ -4,6 +4,7 @@
 """sonicprobe.libs.workerpool"""
 
 import gc
+import itertools
 import logging
 import threading
 import time
@@ -65,18 +66,14 @@ class WorkerThread(threading.Thread):
                     gc.collect()
                 break
 
-            if self.pool.tasks.empty():
-                continue
-
             try:
-                if not self.pool.is_qpriority:
-                    task = self.pool.tasks.get_nowait()
-                else:
-                    qpriority, task = self.pool.tasks.get_nowait()
+                entry = self.pool.tasks.get(timeout=0.1)
+                task = entry[-1] if self.pool.is_qpriority else entry
             except _queue.Empty:
                 continue
 
             if self.pool.exit or isinstance(task, WorkerExit):
+                self.pool.tasks.task_done()
                 break
 
             self.pool.count_lock.acquire()
@@ -89,7 +86,7 @@ class WorkerThread(threading.Thread):
                 self.pool.count_lock.release()
 
             func, cb, name, complete, args, kargs = task
-            self.setName(self.pool.get_name(self.xid, name))
+            self.name = self.pool.get_name(self.xid, name)
 
             ret = None
 
@@ -103,8 +100,11 @@ class WorkerThread(threading.Thread):
             except SystemExit as e:
                 LOG.error("system exit: %r", e)
             finally:
-                if complete:
-                    complete(ret)
+                try:
+                    if complete:
+                        complete(ret)
+                except (Exception, SystemExit) as e:
+                    LOG.exception("completion callback failed: %r", e)
                 del func, args, kargs
 
             self.pool.tasks.task_done()
@@ -145,6 +145,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         self.max_tasks    = max_tasks
         self.auto_gc      = auto_gc
         self.id_list      = []
+        self.sequence     = itertools.count()
 
         self.exit         = False
         self.kill_event   = threading.Event()
@@ -181,7 +182,7 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             if not self.is_qpriority:
                 self.tasks.put(WorkerExit())
             else:
-                self.tasks.put((DEFAULT_EXIT_PRIORITY, WorkerExit()))
+                self.tasks.put((DEFAULT_EXIT_PRIORITY, next(self.sequence), WorkerExit()))
 
     def set_max_workers(self, nb):
         """
@@ -230,24 +231,21 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
             self.count_lock.release()
             self.kill_event.clear()
             w = WorkerThread(xid, self)
-            w.setName(self.get_name(xid, name))
+            w.name = self.get_name(xid, name)
             w.start()
 
     def _run(self, target, _callback_ = None, _name_ = None, _complete_ = None, _qpriority_ = None, *args, **kwargs):
-        self.count_lock.acquire()
-        if not self.workers:
-            self.count_lock.release()
-            self.add(name = _name_)
-        else:
-            self.count_lock.release()
-
-        if not self.is_qpriority:
-            self.tasks.put((target, _callback_, _name_, _complete_, args, kwargs))
-            return
-
-        if _qpriority_ is None:
-            _qpriority_ = time.time()
-        self.tasks.put((_qpriority_, (target, _callback_, _name_, _complete_, args, kwargs)))
+        with self.count_lock:
+            if self.exit:
+                raise RuntimeError('Cannot submit work to a stopped pool')
+            task = (target, _callback_, _name_, _complete_, args, kwargs)
+            if self.is_qpriority:
+                priority = time.time() if _qpriority_ is None else _qpriority_
+                self.tasks.put((priority, next(self.sequence), task))
+            else:
+                self.tasks.put(task)
+            if not self.workers:
+                self.add(name=_name_)
 
     def run(self, target, callback = None, name = None, complete = None, qpriority = None, *args, **kargs):
         """
@@ -258,22 +256,12 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         @complete: complete executed after target in finally
         @qpriority: priority for PriorityQueue
         """
-        self._run(target,
-                  _callback_  = callback,
-                  _name_      = name,
-                  _complete_  = complete,
-                  _qpriority_ = qpriority,
-                  *args,
-                  **kargs)
+        self._run(target, callback, name, complete, qpriority, *args, **kargs)
 
     def run_args(self, target, *args, **kwargs):
-        self._run(target      = target,
-                  _callback_  = kwargs.pop('_callback_', None),
-                  _name_      = kwargs.pop('_name_', None),
-                  _complete_  = kwargs.pop('_complete_', None),
-                  _qpriority_ = kwargs.pop('_qpriority_', None),
-                  *args,
-                  **kwargs)
+        self._run(target, kwargs.pop('_callback_', None),
+                  kwargs.pop('_name_', None), kwargs.pop('_complete_', None),
+                  kwargs.pop('_qpriority_', None), *args, **kwargs)
 
     def killall(self, wait = None):
         """
@@ -281,13 +269,13 @@ class WorkerPool(object): # pylint: disable=useless-object-inheritance
         @wait: Seconds to wait until last worker ends.
                If None it waits forever.
         """
-        self.exit = True
-        with self.tasks.mutex:
-            if isinstance(self.tasks.queue, list):
-                self.tasks.queue[:] = []
-            else:
-                self.tasks.queue.clear()
-        self.count_lock.acquire()
-        self.kill(self.workers)
-        self.count_lock.release()
+        with self.count_lock:
+            self.exit = True
+            while True:
+                try:
+                    self.tasks.get_nowait()
+                except _queue.Empty:
+                    break
+                else:
+                    self.tasks.task_done()
         self.kill_event.wait(wait)

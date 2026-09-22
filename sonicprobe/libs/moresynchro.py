@@ -66,7 +66,7 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
         """
         if timeout is not None:
             endtime = time.time() + timeout
-        me = threading.currentThread()
+        me = threading.current_thread()
         self.__condition.acquire()
         try:
             if self.__writer is me:
@@ -113,7 +113,7 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
         """
         if timeout is not None:
             endtime = time.time() + timeout
-        me = threading.currentThread()
+        me = threading.current_thread()
         self.__condition.acquire()
         try:
             if self.__writer is me:
@@ -147,20 +147,20 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
         In case the current thread holds no lock, a RuntimeError
         is thrown.
         """
-        me = threading.currentThread()
+        me = threading.current_thread()
         self.__condition.acquire()
         try:
             if self.__writer is me:
                 self.__writer_lock_count -= 1
                 if self.__writer_lock_count == 0:
                     self.__writer = None
-                    self.__condition.notifyAll()
+                    self.__condition.notify_all()
             elif me in self.__readers:
                 self.__readers[me] -= 1
                 if self.__readers[me] == 0:
                     del self.__readers[me]
                     if not self.__readers:
-                        self.__condition.notifyAll()
+                        self.__condition.notify_all()
             else:
                 raise RuntimeError("release unlocked lock")
         finally:
@@ -186,7 +186,7 @@ class ListLock(object): # pylint: disable=useless-object-inheritance
 
         If already locked by another thread False is returned.
         """
-        me = threading.currentThread()
+        me = threading.current_thread()
         self.lock.acquire()
         try:
             if elt not in self.locked:

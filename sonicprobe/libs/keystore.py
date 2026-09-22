@@ -17,7 +17,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
         self.__lock     = {}
         self.__updated  = {}
         self.__me       = threading.RLock()
-        self.__thread   = threading.currentThread()
+        self.__thread   = threading.current_thread()
         self.__locked   = None
         self.timeout    = timeout
 
@@ -322,7 +322,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
     def lock(self, blocking = True):
         if self.__me.acquire(blocking):
-            self.__locked = threading.currentThread()
+            self.__locked = threading.current_thread()
             return True
 
         return None
@@ -333,7 +333,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
 
         while True:
             if self.__me.acquire(False):
-                self.__locked = threading.currentThread()
+                self.__locked = threading.current_thread()
                 return True
             if timeout is None:
                 return False

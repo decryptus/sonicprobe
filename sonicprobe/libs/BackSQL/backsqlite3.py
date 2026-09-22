@@ -26,7 +26,7 @@ def connect_by_uri(uri):
 
     con = None
     if 'timeout_ms' in opts:
-        con = sqlite3.connect(puri[PATH], float(opts['timeout_ms']))
+        con = sqlite3.connect(puri[PATH], float(opts['timeout_ms']) / 1000.0)
     else:
         con = sqlite3.connect(puri[PATH])
 
