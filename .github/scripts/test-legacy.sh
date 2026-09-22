@@ -15,6 +15,8 @@ subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + deps)
 BOOT
 # Copy before building: the source checkout is read-only.
 cp -R /src /tmp/source
-python -m pip install --no-build-isolation /tmp/source /tmp/source/dependencies/httpdis /tmp/source/dependencies/dwho mock
+# Seed the package under test before pip 20 resolves circular dependencies.
+python -m pip install --no-build-isolation --no-deps /tmp/source
+python -m pip install --no-build-isolation /tmp/source "httpdis==0.6.27" "dwho==0.3.61" mock
 cd /tmp
 python -B -m unittest discover -s /tmp/source/tests -v
