@@ -35,6 +35,7 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingUDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        self.socket.settimeout(0.5)
 
         max_workers     = int(config.get('max_workers', 0))
         max_requests    = int(config.get('max_requests', 0))
@@ -92,6 +93,7 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
 
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingUDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        self.socket.settimeout(0.5)
 
         self.worker_name   = name
 

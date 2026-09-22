@@ -16,3 +16,15 @@ class SQLiteTests(unittest.TestCase):
         self.assertTrue(backsqlite3.is_connected(conn))
         conn.close()
         self.assertFalse(backsqlite3.is_connected(conn))
+
+    def test_constraint_error_does_not_reconnect_and_lose_transaction(self):
+        import sqlite3
+        conn = anysql.connect_by_uri('sqlite3::memory:')
+        self.addCleanup(conn.close)
+        cursor = conn.cursor()
+        cursor.query('CREATE TABLE items (id INTEGER PRIMARY KEY)')
+        cursor.query('INSERT INTO items VALUES (?)', None, [1])
+        with self.assertRaises(sqlite3.IntegrityError):
+            cursor.query('INSERT INTO items VALUES (?)', None, [1])
+        cursor.query('SELECT id FROM items')
+        self.assertEqual(cursor.fetchone()[0], 1)

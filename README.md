@@ -89,6 +89,14 @@ finally:
 SQLite's `timeout_ms` is interpreted in milliseconds. Values should be bound via
 query parameters; do not concatenate untrusted SQL fragments.
 
+## Certificates
+
+`GenCert` now defaults to SHA-256, exports PEM bytes correctly and issues X.509 v3
+certificates. The legacy OpenSSL object API is preserved by requiring
+`pyOpenSSL<26.2` (26.2 removed its extension API). Applications should explicitly
+review CSR extensions when issuing certificates. A future API migration to
+`cryptography.x509` is needed to remove this compatibility cap.
+
 ## Compatibility boundaries
 
 The historical `sonicprobe.libs.http_json_server` re-exports HTTPdis. Consequently
@@ -114,3 +122,5 @@ new `vX.Y.Z` tag and publishes via Trusted Publishing (`decryptus/sonicprobe`,
 workflow `pypi.yml`, environment `pypi`). Existing tags are never overwritten.
 
 License: GPL-3.0-or-later; original module copyrights remain in the source.
+
+See the [September 2026 code and architecture review](docs/REVIEW.md) (French).
