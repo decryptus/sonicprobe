@@ -29,6 +29,8 @@ Copyright (C) 2007-2010  Avencall
 import time
 import threading
 
+_clock = getattr(time, 'monotonic', time.time)
+
 class RWLock(object): # pylint: disable=useless-object-inheritance
     """
     Simple RWLock with timeouts, without promotion.
@@ -65,7 +67,7 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
         returns True, on a timeout it returns None.
         """
         if timeout is not None:
-            endtime = time.time() + timeout
+            endtime = _clock() + timeout
         me = threading.current_thread()
         self.__condition.acquire()
         try:
@@ -88,7 +90,7 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
                         self.__readers[me] = self.__readers.get(me, 0) + 1
                         return True
                 if timeout is not None:
-                    remaining = endtime - time.time()
+                    remaining = endtime - _clock()
                     if remaining <= 0:
                         return None
                     self.__condition.wait(remaining)
@@ -112,7 +114,7 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
         a reader lock) it returns False.
         """
         if timeout is not None:
-            endtime = time.time() + timeout
+            endtime = _clock() + timeout
         me = threading.current_thread()
         self.__condition.acquire()
         try:
@@ -130,14 +132,16 @@ class RWLock(object): # pylint: disable=useless-object-inheritance
                     self.__pending_writers = self.__pending_writers[1:]
                     return True
                 if timeout is not None:
-                    remaining = endtime - time.time()
+                    remaining = endtime - _clock()
                     if remaining <= 0:
-                        self.__pending_writers.remove(me)
                         return None
                     self.__condition.wait(remaining)
                 else:
                     self.__condition.wait()
         finally:
+            if me in self.__pending_writers:
+                self.__pending_writers.remove(me)
+                self.__condition.notify_all()
             self.__condition.release()
 
     def release(self):
@@ -211,6 +215,8 @@ class ListLock(object): # pylint: disable=useless-object-inheritance
         try:
             if elt not in self.locked:
                 raise RuntimeError("release unlocked lock for %r" % elt)
+            if self.locked[elt][0] is not threading.current_thread():
+                raise RuntimeError("release unowned lock for %r" % elt)
             self.locked[elt][1] -= 1
             if not self.locked[elt][1]:
                 del self.locked[elt]

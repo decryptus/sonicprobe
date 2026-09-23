@@ -4,6 +4,85 @@ on:
 permissions:
   contents: read
 jobs:
+  consumers:
+    name: Consumer compatibility (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    services:
+      redis:
+        image: redis:7.2.6-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: decryptus/dwho
+          ref: 3ea4a1002a37fd84c45b6c13e158ed61c67b5c95
+          path: consumers/dwho
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: decryptus/httpdis
+          ref: f91ee525cd36d5519db73cb9c5a8f66c6754abd9
+          path: consumers/httpdis
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: decryptus/auton
+          ref: 502a0dc6ac9e8b8d550685c2ab9b66ec1d893130
+          path: consumers/auton
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: decryptus/covenant
+          ref: b7d875ad35320c65bd13c6688442202452ced8f1
+          path: consumers/covenant
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/checkout@v4
+        with:
+          repository: decryptus/monit-docker
+          ref: 1f6e6a0134bd2eb81d7ec7a3ef0590063853c10d
+          path: consumers/monit-docker
+          persist-credentials: false
+      - name: Install candidate Sonicprobe with pinned consumer sources
+        run: |
+          python -m pip install . ./consumers/dwho ./consumers/httpdis mock packaging jmespath prometheus-client
+          AUTON_PACKAGE=autond python -m pip install ./consumers/auton
+          python -m pip install --no-deps ./consumers/covenant
+          python -m pip install ./consumers/monit-docker
+      - name: Verify the candidate and exercise consumers outside the Sonicprobe checkout
+        env:
+          DWHO_REDIS_TEST_URL: redis://127.0.0.1:6379/0
+        run: |
+          cd "$(mktemp -d)"
+          python - "$GITHUB_WORKSPACE" <<'PY'
+          import pathlib, sonicprobe, sys
+          installed = pathlib.Path(sonicprobe.__file__).resolve().parent
+          candidate = pathlib.Path(sys.argv[1]) / 'sonicprobe'
+          assert installed != candidate.resolve()
+          for relative in ('libs/keystore.py', 'libs/moresynchro.py', 'libs/workerpool.py',
+                           'libs/threading_tcp_server.py', 'libs/threading_udp_server.py',
+                           'sp_logging/QueueSMTPHandler.py'):
+              assert (installed / relative).read_bytes() == (candidate / relative).read_bytes(), relative
+          PY
+          python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/dwho/tests" -v
+          python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/httpdis/tests" -v
+          python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/auton/tests" -v
+          python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/covenant/tests" -v
+          python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/monit-docker/tests" -v
+          python -m unittest discover -s "$GITHUB_WORKSPACE/integration" -v
   modern:
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -7,6 +7,8 @@ from contextlib import contextmanager
 import gc
 import logging
 import time
+
+from sonicprobe.libs.moresynchro import RWLock
 import threading
 
 LOG = logging.getLogger('sonicprobe.keystore')
@@ -17,27 +19,26 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
         self.__data     = {}
         self.__lock     = {}
         self.__updated  = {}
-        self.__me       = threading.RLock()
-        self.__thread   = threading.current_thread()
-        self.__locked   = None
+        self.__gate     = RWLock()
+        self.__explicit = threading.local()
+        self.__creation = threading.Lock()
         self.timeout    = timeout
 
     def _lock(self):
-        owner = self.__locked
-        if owner is None or owner is threading.current_thread():
-            return True
-        if not self.try_lock(self.timeout):
+        # Ordinary operations hold a shared gate for their full lifetime.
+        # Explicit global locks take the exclusive side of the same gate.
+        if not self.__gate.acquire_read(self.timeout):
             raise RuntimeError('unable to lock')
         return False
 
     def _unlock(self, already_locked):
         if not already_locked:
-            self.try_unlock()
+            self.__gate.release()
 
     @contextmanager
     def _guard(self):
-        # Only release a global lock acquired by this operation. A caller may
-        # already own it explicitly, or a nested operation may share it.
+        # Each operation balances its shared acquisition, including nested
+        # calls made by the owner of an explicit exclusive lock.
         already_locked = self._lock()
         try:
             yield
@@ -59,7 +60,7 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
                 section_lock.release()
 
     def add(self, name, lock = False):
-        with self._guard():
+        with self._guard(), self.__creation:
             if name not in self.__data:
                 self.__lock[name] = threading.RLock()
                 with self._section_guard(name, lock):
@@ -214,37 +215,28 @@ class Keystore(object): # pylint: disable=useless-object-inheritance
             return list(self.__data.keys())
 
     def lock(self, blocking = True):
-        if self.__me.acquire(blocking):
-            self.__locked = threading.current_thread()
+        if self.__gate.acquire_write(None if blocking else 0):
+            self.__explicit.depth = getattr(self.__explicit, 'depth', 0) + 1
             return True
-
         return None
 
     def try_lock(self, timeout = None):
-        if timeout is not None:
-            endtime = time.time() + timeout
-
-        while True:
-            if self.__me.acquire(False):
-                self.__locked = threading.current_thread()
-                return True
-            if timeout is None:
-                return False
-
-            remaining = endtime - time.time()
-            if remaining <= 0:
-                return 0
-            time.sleep(min(0.01, remaining))
+        if self.__gate.acquire_write(0 if timeout is None else timeout):
+            self.__explicit.depth = getattr(self.__explicit, 'depth', 0) + 1
+            return True
+        return False if timeout is None else 0
 
     def try_unlock(self):
         try:
-            self.__locked = self.__me.release()
+            self.unlock()
         except RuntimeError:
             pass
-
         return self
 
     def unlock(self):
-        self.__locked = self.__me.release()
-
+        depth = getattr(self.__explicit, 'depth', 0)
+        if not depth:
+            raise RuntimeError('cannot release an unowned lock')
+        self.__gate.release()
+        self.__explicit.depth = depth - 1
         return self
