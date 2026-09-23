@@ -1,3 +1,13 @@
+python-sonicprobe (0.3.53) unstable; urgency=medium
+
+  * Harden Keystore, ListLock and RWLock ownership, recursion and exception cleanup.
+  * Fix worker startup, queue saturation, idle detection and shutdown accounting.
+  * Close pending TCP/UDP requests on shutdown and synchronize queued SMTP logs.
+  * Add concurrency regressions and pinned downstream compatibility CI.
+  * Retain Python 2.7 and 3.5-3.14 validation and document process boundaries.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 02:00:00 +0000
+
 python-sonicprobe (0.3.51) unstable; urgency=medium
 
   * Fixed MySQLConfigParserFilter iteration.

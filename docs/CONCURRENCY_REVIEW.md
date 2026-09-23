@@ -1,7 +1,7 @@
 # Revue de concurrence — 23 septembre 2026
 
-Cette revue accompagne la PR Sonicprobe #3. Les changements sont en attente de
-fusion/publication ; ils ne décrivent pas la version 0.3.52 déjà publiée.
+Cette revue accompagne Sonicprobe 0.3.53, préparé dans la PR #3. Les corrections
+décrites ici succèdent à la version 0.3.52.
 
 ## Périmètre et défauts corrigés
 
