@@ -34,3 +34,9 @@ xbstream et toutes les combinaisons de concurrence ne sont pas certifiés par ce
 campagne. Le pool ne peut pas arrêter de force une fonction Python déjà en cours.
 La suite apporte une base de régression, pas une preuve formelle de sûreté. Le projet
 mérite d'être conservé comme boîte à outils de l'écosystème, avec un périmètre clarifié.
+
+## Passe complémentaire
+
+La [revue de concurrence du 23 septembre](CONCURRENCY_REVIEW.md) documente les
+défauts supplémentaires, les corrections proposées en PR et les vérifications
+des projets consommateurs. Elle précise aussi les limites de validation.

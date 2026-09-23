@@ -62,6 +62,13 @@ priorities preserve submission order. Submit priority tasks through the pool API
 interrupt running Python functions. `killable()` reports a momentary idle state,
 not a synchronization barrier. `tasks.join()` waits for submitted queue work.
 
+The concurrency changes in 0.3.53 and their consumer tests are described in the
+[September 23 concurrency review](docs/CONCURRENCY_REVIEW.md). These primitives
+coordinate threads within one process; create fresh workers and locks after
+process creation. When combining explicit Keystore locks, acquire the global
+lock before section locks and release them in reverse order. Do not fork a
+process while its application threads are using these objects.
+
 ## Files and SQL
 
 ```python

@@ -36,6 +36,9 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingUDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
         self.socket.settimeout(0.5)
+        self._killed = False
+        self._request_lock = threading.RLock()
+        self._stop_event = threading.Event()
 
         max_workers     = int(config.get('max_workers', 0))
         max_requests    = int(config.get('max_requests', 0))
@@ -45,15 +48,29 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
             max_workers = 1
 
         self.requests   = queue.Queue()
+        self._pending_requests = {}
         self.workerpool = WorkerPool(name        = name,
                                      max_workers = max_workers,
                                      max_tasks   = max_requests,
                                      life_time   = max_life_time)
 
     def kill(self):
-        self._killed = True
+        with self._request_lock:
+            self._killed = True
+            self._stop_event.set()
+            pending = list(self._pending_requests.values())
+            self._pending_requests.clear()
         self.workerpool.killall(0)
+        for request in pending:
+            self.shutdown_request(request)
         return self._killed
+
+    def _process_queued_request(self, request, client_address):
+        with self._request_lock:
+            if id(request) not in self._pending_requests:
+                return  # kill() already closed this pending request.
+            del self._pending_requests[id(request)]
+        self.process_request_thread(request, client_address)
 
     def killed(self):
         return self._killed
@@ -66,9 +83,18 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
             return
 
         if self.verify_request(request, client_address):
-            self.workerpool.run(self.process_request_thread,
-                                **{'request': request,
-                                   'client_address': client_address})
+            with self._request_lock:
+                if self._killed:
+                    self.shutdown_request(request)
+                    return
+                self._pending_requests[id(request)] = request
+                try:
+                    self.workerpool.run(self._process_queued_request,
+                                        request=request, client_address=client_address)
+                except BaseException:
+                    self._pending_requests.pop(id(request), None)
+                    self.shutdown_request(request)
+                    raise
         else:
             self.shutdown_request(request)
 
@@ -94,6 +120,9 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
     def __init__(self, config, server_address, RequestHandlerClass, bind_and_activate = True, name = None):
         socketserver.ThreadingUDPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
         self.socket.settimeout(0.5)
+        self._killed = False
+        self._request_lock = threading.RLock()
+        self._stop_event = threading.Event()
 
         self.worker_name   = name
 
@@ -109,7 +138,18 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
         self.add_worker(self.max_workers)
 
     def kill(self):
-        self._killed = True
+        with self._request_lock:
+            self._killed = True
+            self._stop_event.set()
+            while True:
+                try:
+                    request, _ = self.requests.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    self.shutdown_request(request)
+                finally:
+                    self.requests.task_done()
         return self._killed
 
     def killed(self):
@@ -126,33 +166,30 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
             t.start()
 
     def process_request_thread(self, mainthread):  # pylint: disable=arguments-differ
-        """obtain request from queue instead of directly from server socket"""
-        life_time   = time.time()
+        life_time = time.time()
         nb_requests = 0
-
         while not mainthread.killed():
-            if self.max_life_time > 0:
-                if (time.time() - life_time) >= self.max_life_time:
+            if self.max_life_time > 0 and time.time() - life_time >= self.max_life_time:
+                if not mainthread.killed():
                     mainthread.add_worker(1)
+                return
+            try:
+                request, client_address = self.requests.get(True, 0.5)
+            except queue.Empty:
+                continue
+            try:
+                with self._request_lock:
+                    cancelled = mainthread.killed()
+                if cancelled:
+                    self.shutdown_request(request)
                     return
-                try:
-                    try:
-                        socketserver.ThreadingUDPServer.process_request_thread(self, *self.requests.get(True, 0.5))
-                    except queue.Empty:
-                        continue
-                except AttributeError:
-                    return
-            else:
-                try:
-                    socketserver.ThreadingUDPServer.process_request_thread(self, *self.requests.get(True, 0.5))
-                except queue.Empty:
-                    continue
-
-            LOG.debug("nb_requests: %d, max_requests: %d", nb_requests, self.max_requests)
+                socketserver.ThreadingUDPServer.process_request_thread(self, request, client_address)
+            finally:
+                self.requests.task_done()
             nb_requests += 1
-
             if self.max_requests > 0 and nb_requests >= self.max_requests:
-                mainthread.add_worker(1)
+                if not mainthread.killed():
+                    mainthread.add_worker(1)
                 return
 
     def handle_request(self):
@@ -163,7 +200,17 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
             return
 
         if self.verify_request(request, client_address):
-            self.requests.put((request, client_address))
+            while True:
+                with self._request_lock:
+                    if self._killed:
+                        self.shutdown_request(request)
+                        return
+                    try:
+                        self.requests.put_nowait((request, client_address))
+                        return
+                    except queue.Full:
+                        pass
+                self._stop_event.wait(0.05)
         else:
             self.shutdown_request(request)
 

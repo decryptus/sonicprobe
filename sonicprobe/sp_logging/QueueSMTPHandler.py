@@ -23,7 +23,11 @@ class QueueSMTPHandler(SMTPHandler):
         SMTPHandler.__init__(self, mailhost, fromaddr, toaddrs, subject)
 
     def isEmpty(self):
-        return len(self.queue) == 0
+        self.acquire()
+        try:
+            return len(self.queue) == 0
+        finally:
+            self.release()
 
     def getSubject(self, record):
         if self.logger_name:
@@ -31,17 +35,21 @@ class QueueSMTPHandler(SMTPHandler):
         return "%s Event" % record.levelname
 
     def emit(self, record):
-        if record.levelname not in self.queue:
-            self.queue[record.levelname]    = []
-
-        self.queue[record.levelname].append(record)
+        self.acquire()
+        try:
+            if record.levelname not in self.queue:
+                self.queue[record.levelname] = []
+            self.queue[record.levelname].append(record)
+        finally:
+            self.release()
 
     def purge(self):
-        if self.isEmpty():
-            return
-
-        queue       = dict(self.queue)
-        self.queue  = {}
+        self.acquire()
+        try:
+            queue = self.queue
+            self.queue = {}
+        finally:
+            self.release()
 
         for records in itervalues(queue):
             msg     = ""
@@ -71,4 +79,7 @@ class QueueSMTPHandler(SMTPHandler):
                 self.handleError(record)
             finally:
                 if smtp:
-                    smtp.quit()
+                    try:
+                        smtp.quit()
+                    except Exception:
+                        smtp.close()
