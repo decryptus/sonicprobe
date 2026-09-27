@@ -70,7 +70,7 @@ class PidfileTests(unittest.TestCase):
                 with self.assertRaises(IOError) as caught:
                     daemonize.lock_pidfile(self.path)
         self.assertIs(caught.exception, error)
-        stream.__exit__.assert_called_once()
+        self.assertEqual(stream.__exit__.call_count, 1)
         self.assertEqual(os.listdir(self.directory), [])
 
     def test_open_failure_does_not_delete_an_existing_temporary_path(self):
