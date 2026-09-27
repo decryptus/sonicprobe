@@ -1,7 +1,8 @@
 # Architecture review — 2026-09-27
 
 Reviewed commit: `e6c53f6ba591d5f00054c23457f9547282fb7638` on `master`.
-Status: **review and engineering requirements only; runtime findings remain open**.
+Initial status: **review and engineering requirements only**. See the follow-up
+implementation below for the addressed findings and compatibility scope.
 
 Scope: separation of application logic, interfaces and adapters; callback and
 initialization ownership; fixed validation contracts. Source files were fetched
@@ -40,3 +41,24 @@ side effect. Other generic modules do not import DWho or HTTPdis in the scanned
 source. The existing worker, synchronization and network utilities remain valid
 shared adapters; no replacement framework is proposed. This source review does
 not rerun every platform, SQL driver or concurrency integration suite.
+
+
+## Follow-up implementation
+
+S1 is guarded by behavioral import-boundary tests: generic utilities and real
+worker execution/shutdown run with HTTPdis/DWho/CLI imports blocked, while an
+explicit compatibility test verifies every public shim export by identity against
+HTTPdis. The shim and the declared installation dependency remain available;
+there is no package-removal or import-path migration in this change.
+
+S2 now has `lock_pidfile()` and `locked_pidfile()`: embedded callers receive a PID
+or an exception and control their own lifecycle. `lock_pidfile_or_die()` delegates
+to the primitive and preserves launcher exit status 1. The existing daemon context
+and double fork retain their contracts. Temporary-file cleanup covers write and
+permission failures, and PID-file read handles are closed explicitly.
+
+Tests cover contention, filesystem failures, cleanup, context exceptions,
+legacy launcher behavior and separate-process locking. The `/proc`-dependent
+contention test runs only when `/proc/self` and `os.getpid()` use the same PID
+namespace; the lower-level hard-link contention test remains independent of that
+condition. Existing worker, lock, TCP/UDP and pinned-consumer suites remain CI gates.
