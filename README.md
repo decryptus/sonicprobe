@@ -131,3 +131,40 @@ workflow `pypi.yml`, environment `pypi`). Existing tags are never overwritten.
 License: GPL-3.0-or-later; original module copyrights remain in the source.
 
 See the [September 2026 code and architecture review](docs/REVIEW.md) (French).
+
+
+### Embedded PID-file locking and launcher compatibility
+
+`sonicprobe.libs.daemonize.lock_pidfile(path)` claims a PID file and returns the
+current PID. It raises `PidfileLockError` when the lock cannot be claimed and
+propagates filesystem exceptions. It does not call `sys.exit()` or fork. Temporary
+PID files are cleaned after write or permission failures. Existing Linux `/proc`
+stale-file detection, file permissions and atomic hard-link acquisition remain.
+As before, this is a process lock, not a lock for threads within one process.
+It requires `/proc` to expose the same PID namespace as the caller.
+
+For embedded applications, use the context manager to release your own PID file
+on normal completion or an exception:
+
+```python
+from sonicprobe.libs.daemonize import locked_pidfile, PidfileLockError
+
+try:
+    with locked_pidfile('/run/example.pid') as pid:
+        run_application()
+except PidfileLockError:
+    handle_already_running()
+```
+
+Existing launchers keep their contracts: `lock_pidfile_or_die(path)` returns the
+PID on success and exits with status 1 on failure; `pidfile_context(path,
+foreground=False)` keeps its daemonization, exit and cleanup behavior. The explicit
+double fork in `daemonize()` is unchanged. Embedded applications must choose the
+new primitive/context explicitly rather than the launcher helpers.
+
+`sonicprobe.libs.http_json_server` remains a compatibility re-export with the same
+HTTPdis objects. New HTTP consumers should import `httpdis.ext.httpdis_json`
+directly. Generic utilities do not import the shim; tests exercise helpers,
+schemas, locks, worker execution/shutdown and PID lifecycle with HTTPdis, DWho and
+CLI imports blocked. The declared HTTPdis installation dependency is retained in
+this release to avoid breaking consumers that rely on the historical shim.

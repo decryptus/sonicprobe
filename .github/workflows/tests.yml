@@ -74,6 +74,7 @@ jobs:
           assert installed != candidate.resolve()
           for relative in ('libs/keystore.py', 'libs/moresynchro.py', 'libs/workerpool.py',
                            'libs/threading_tcp_server.py', 'libs/threading_udp_server.py',
+                           'libs/daemonize.py', 'libs/http_json_server.py',
                            'sp_logging/QueueSMTPHandler.py'):
               assert (installed / relative).read_bytes() == (candidate / relative).read_bytes(), relative
           PY
@@ -118,3 +119,4 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro"
           python:${{ matrix.python }}
           bash /src/.github/scripts/test-legacy.sh
+

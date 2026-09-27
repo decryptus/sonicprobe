@@ -35,7 +35,8 @@ def remove_if_stale_pidfile(pidfile):
     """
     try:
         try:
-            pid_maydaemon = int(open(pidfile).readline().strip())
+            with open(pidfile) as stream:
+                pid_maydaemon = int(stream.readline().strip())
         except IOError as e:
             if e.errno == errno.ENOENT:
                 return  # nothing to suppress, so do nothing...
@@ -43,11 +44,8 @@ def remove_if_stale_pidfile(pidfile):
         # Who are we?
         i_am = c14n_prog_name(sys.argv[0])
         try:
-            other_cmdline = (
-                open(os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_CMDLN))
-                .read()
-                .split('\0')
-            )
+            with open(os.path.join(SLASH_PROC, str(pid_maydaemon), PROG_CMDLN)) as stream:
+                other_cmdline = stream.read().split('\0')
             if other_cmdline and other_cmdline[-1] == "":
                 other_cmdline.pop()
         except IOError as e:
@@ -142,7 +140,8 @@ def take_file_lock(own_file, lock_file, own_content):
             )
             return False
         raise
-    content = open(lock_file).read(len(own_content) + 1)
+    with open(lock_file) as stream:
+        content = stream.read(len(own_content) + 1)
     if content != own_content:
         LOG.warning(
             "I thought I successfully took the lock file %r but "
@@ -154,33 +153,64 @@ def take_file_lock(own_file, lock_file, own_content):
     return True
 
 
-def lock_pidfile_or_die(pidfile):
-    """
-    @pidfile:
-        must be a writable path
+class PidfileLockError(RuntimeError):
+    """The PID file could not be claimed without replacing another owner."""
 
-    Exceptions are logged.
 
-    Returns the PID.
+def lock_pidfile(pidfile):
+    """Claim a PID file and return this process's PID, without exiting.
+
+    Existing stale-file detection and atomic hard-link acquisition are retained.
+    Contention raises PidfileLockError; filesystem failures propagate unchanged.
+    The caller owns the lock until unlock_pidfile() is called. Temporary files
+    are removed even when writing or setting permissions fails.
     """
     pid = os.getpid()
+    remove_if_stale_pidfile(pidfile)
+    pid_write_file = pidfile + '.' + str(pid)
+    temporary_created = False
     try:
-        remove_if_stale_pidfile(pidfile)
-        pid_write_file = pidfile + '.' + str(pid)
-        fpid = open(pid_write_file, 'w')
-        try:
+        with open(pid_write_file, 'w') as fpid:
+            temporary_created = True
             fpid.write("%s\n" % pid)
-        finally:
-            fpid.close()
         os.chmod(pid_write_file, 0o644)
         if not take_file_lock(pid_write_file, pidfile, "%s\n" % pid):
-            sys.exit(1)
-    except SystemExit:
-        raise
+            raise PidfileLockError("unable to claim pidfile: %r" % pidfile)
+    finally:
+        # take_file_lock normally unlinks this file itself. Do not hide the
+        # original acquisition failure if best-effort cleanup also fails.
+        try:
+            if temporary_created:
+                os.unlink(pid_write_file)
+        except OSError as error:
+            if error.errno != errno.ENOENT:
+                LOG.warning("unable to remove temporary pidfile %r: %s",
+                            pid_write_file, error)
+    return pid
+
+
+def lock_pidfile_or_die(pidfile):
+    """Launcher compatibility: return the PID or exit with status 1.
+
+    Embedded callers should use lock_pidfile() to handle errors themselves.
+    """
+    try:
+        return lock_pidfile(pidfile)
+    except PidfileLockError:
+        sys.exit(1)
     except Exception:
         LOG.exception("unable to take pidfile")
         sys.exit(1)
-    return pid
+
+
+@contextmanager
+def locked_pidfile(pidfile):
+    """Hold a PID file for a block, without daemonization or process exit."""
+    pid = lock_pidfile(pidfile)
+    try:
+        yield pid
+    finally:
+        unlock_pidfile(pidfile)
 
 
 def unlock_pidfile(pidfile):
@@ -190,7 +220,8 @@ def unlock_pidfile(pidfile):
     """
     try:
         pid = "%s\n" % os.getpid()
-        content = open(pidfile).read(len(pid) + 1)
+        with open(pidfile) as stream:
+            content = stream.read(len(pid) + 1)
         if content == pid:
             os.unlink(pidfile)
         else:
@@ -267,3 +298,4 @@ def pidfile_context(pid_file_name, foreground=False):
         LOG.debug("Unlocking PID...")
         unlock_pidfile(pid_file_name)
         LOG.debug("PID file unlocked.")
+
