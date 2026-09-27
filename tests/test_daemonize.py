@@ -131,7 +131,8 @@ class PidfileTests(unittest.TestCase):
                 "sys.stdin.read(1)\n"
                 "try:\n lock_pidfile(path); result='owned'\n"
                 "except PidfileLockError:\n result='busy'\n"
-                "with open(sys.argv[2],'w') as stream: stream.write(result)\n"
+                "with open(sys.argv[2]+'.tmp','w') as stream: stream.write(result)\n"
+                "os.rename(sys.argv[2]+'.tmp',sys.argv[2])\n"
                 "sys.stdin.read(1)\n"
                 "if result=='owned': unlock_pidfile(path)\n")
         results = [os.path.join(self.directory, 'result-%s' % index) for index in range(2)]
