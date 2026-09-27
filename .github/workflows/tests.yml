@@ -26,25 +26,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: decryptus/dwho
-          ref: 3ea4a1002a37fd84c45b6c13e158ed61c67b5c95
+          ref: b9e46064ff87a8910a1f7450498c2c5fe4083c73
           path: consumers/dwho
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: decryptus/httpdis
-          ref: f91ee525cd36d5519db73cb9c5a8f66c6754abd9
+          ref: 22a9ebdd6ac014df68ae40f891e16742cb1c4fa9
           path: consumers/httpdis
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: decryptus/auton
-          ref: 502a0dc6ac9e8b8d550685c2ab9b66ec1d893130
+          ref: c98565679ad1738ad51321089dcfaee6e16a6fa8
           path: consumers/auton
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: decryptus/covenant
-          ref: b7d875ad35320c65bd13c6688442202452ced8f1
+          ref: 59b72ef4ef7987465c840e39215badc87f52eefa
           path: consumers/covenant
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -53,13 +53,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: decryptus/monit-docker
-          ref: 1f6e6a0134bd2eb81d7ec7a3ef0590063853c10d
+          ref: 001157a163054ede47637a32c8dd74a8cdd525a6
           path: consumers/monit-docker
           persist-credentials: false
       - name: Install candidate Sonicprobe with pinned consumer sources
         run: |
           python -m pip install . ./consumers/dwho ./consumers/httpdis mock packaging jmespath prometheus-client
           AUTON_PACKAGE=autond python -m pip install ./consumers/auton
+          AUTON_PACKAGE=auton python -m pip install ./consumers/auton
           python -m pip install --no-deps ./consumers/covenant
           python -m pip install ./consumers/monit-docker
       - name: Verify the candidate and exercise consumers outside the Sonicprobe checkout
@@ -119,4 +120,5 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro"
           python:${{ matrix.python }}
           bash /src/.github/scripts/test-legacy.sh
+
 
