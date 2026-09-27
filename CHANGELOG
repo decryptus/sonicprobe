@@ -1,3 +1,12 @@
+python-sonicprobe (0.3.54) unstable; urgency=medium
+
+  * Add embeddable PID-file locking with explicit errors and scoped cleanup.
+  * Preserve legacy daemonization and exit-based entry points.
+  * Close PID readers and clean temporary files after failed writes.
+  * Document the legacy HTTPdis adapter and validate process contention.
+
+ -- Codex <codex@openai.com>  Mon, 28 Sep 2026 01:40:00 +0200
+
 python-sonicprobe (0.3.53) unstable; urgency=medium
 
   * Harden Keystore, ListLock and RWLock ownership, recursion and exception cleanup.
