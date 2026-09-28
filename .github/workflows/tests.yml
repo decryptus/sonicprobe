@@ -84,6 +84,7 @@ jobs:
           python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/auton/tests" -v
           python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/covenant/tests" -v
           python -m unittest discover -s "$GITHUB_WORKSPACE/consumers/monit-docker/tests" -v
+          python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/integration"
           python -m unittest discover -s "$GITHUB_WORKSPACE/integration" -v
   modern:
     runs-on: ubuntu-latest
@@ -103,6 +104,7 @@ jobs:
       - name: Test the installed package outside the checkout
         run: |
           cd "$(mktemp -d)"
+          python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/tests"
           python -m unittest discover -s "$GITHUB_WORKSPACE/tests" -v
   legacy:
     runs-on: ubuntu-latest
