@@ -96,6 +96,17 @@ finally:
 SQLite's `timeout_ms` is interpreted in milliseconds. Values should be bound via
 query parameters; do not concatenate untrusted SQL fragments.
 
+For application-managed transactions, use
+`anysql.connect_by_uri(uri, auto_reconnect=False)`. Query, fetch and commit
+failures then propagate without probing the connection, reconnecting or replaying
+work. The caller owns commit, rollback and recovery; this option does not change
+DBAPI autocommit. An explicit `reconnect()` remains available. The historical
+automatic recovery behavior remains the default for existing callers.
+
+The adapters share a connection interface, not a portable SQL dialect. SQLite
+connections retain their driver thread affinity, and SQLite `querymany` is not
+currently supported; use parameterized `query` calls inside a transaction.
+
 ## Certificates
 
 `GenCert` now defaults to SHA-256, exports PEM bytes correctly and issues X.509 v3
