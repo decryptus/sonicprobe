@@ -1,3 +1,10 @@
+python-sonicprobe (0.3.55) unstable; urgency=medium
+
+  * Allow application-managed transactions to disable automatic reconnection.
+  * Preserve historical recovery by default and test strict SQLite failures.
+
+ -- Codex <codex@openai.com>  Tue, 29 Sep 2026 10:05:00 +0200
+
 python-sonicprobe (0.3.54) unstable; urgency=medium
 
   * Add embeddable PID-file locking with explicit errors and scoped cleanup.
