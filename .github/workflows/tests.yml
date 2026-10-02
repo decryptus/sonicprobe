@@ -73,7 +73,7 @@ jobs:
           installed = pathlib.Path(sonicprobe.__file__).resolve().parent
           candidate = pathlib.Path(sys.argv[1]) / 'sonicprobe'
           assert installed != candidate.resolve()
-          for relative in ('libs/keystore.py', 'libs/moresynchro.py', 'libs/workerpool.py',
+          for relative in ('libs/xys.py', 'libs/keystore.py', 'libs/moresynchro.py', 'libs/workerpool.py',
                            'libs/threading_tcp_server.py', 'libs/threading_udp_server.py',
                            'libs/daemonize.py', 'libs/http_json_server.py',
                            'sp_logging/QueueSMTPHandler.py'):
