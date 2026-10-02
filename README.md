@@ -125,7 +125,7 @@ cost: tested core behavior should not be confused with universal backend coverag
 
 ## XYS validation logs
 
-The development branch keeps XYS validation results unchanged while removing
+Since Sonicprobe 0.3.56, XYS keeps XYS validation results unchanged while removing
 rejected document values and unexpected document key names from built-in error
 logs. Qualifier failures identify the schema validator; length failures identify
 the bound, and unknown fields produce a generic forbidden-key message.
