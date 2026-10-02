@@ -123,6 +123,21 @@ installation behavior; a future major version can separate the HTTP compatibilit
 module and reduce mandatory dependencies. The broad public surface is a maintenance
 cost: tested core behavior should not be confused with universal backend coverage.
 
+## XYS validation logs
+
+Since Sonicprobe 0.3.56, XYS keeps XYS validation results unchanged while removing
+rejected document values and unexpected document key names from built-in error
+logs. Qualifier failures identify the schema validator; length failures identify
+the bound, and unknown fields produce a generic forbidden-key message.
+Schema-defined expected field names, validator names, types and bounds can still
+appear as diagnostics. Callers should inspect the boolean validation result,
+rather than depending on exact log text or recovering input values from logs.
+
+This uses no global logging suppression or per-request logger reconfiguration.
+It only governs XYS's own diagnostics: application callbacks and custom validators
+remain responsible for what they log. Regression tests capture formatted records,
+reject synthetic input markers and check that valid documents still pass.
+
 ## Tests and release
 
 ```sh

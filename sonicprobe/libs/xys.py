@@ -637,17 +637,17 @@ def _valid_len(key, value, min_len, max_len):
         return None
 
     if not hasattr(value, '__len__'):
-        LOG.error("unable to test length for key %r in document", key)
+        LOG.error("unable to test document value length")
         return False
 
     xlen = len(value)
 
     if min_len > xlen:
-        LOG.error("invalid length for key %r in document, value is too short. (min: %s)", key, min_len)
+        LOG.error("document value is too short. (min: %s)", min_len)
         return False
 
     if max_len is not None and max_len < xlen:
-        LOG.error("invalid length for key %r in document, value is too long. (max: %s)", key, max_len)
+        LOG.error("document value is too long. (max: %s)", max_len)
         return False
 
     return True
@@ -668,8 +668,7 @@ def _validate_node(document, schema, log_qualifier = True):
         return False
     if not schema.validator(document, schema.content):
         if log_qualifier:
-            LOG.error("%r failed to validate with qualifier %s",
-                      document,
+            LOG.error("document value failed to validate with qualifier %s",
                       schema.validator.__name__)
         return False
     return True
@@ -805,7 +804,7 @@ def _validate_dict(document, schema):
     for key, doc_val in iteritems(doc_copy):
         schema_val = optional.get(key, Nothing)
         if schema_val is Nothing:
-            LOG.error("forbidden key %s in document", key)
+            LOG.error("forbidden key in document")
             return False
 
         if key in optionalnull and doc_val is None:
