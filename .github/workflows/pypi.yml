@@ -51,6 +51,7 @@ jobs:
       contents: write
     outputs:
       publish: ${{ steps.release.outputs.publish }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,3 +80,27 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+  github-release:
+    needs: [release, publish]
+    if: needs.release.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish the validated distributions and release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; preserving it."
+          else
+            gh release create "$TAG" dist/* --verify-tag --repo "$GITHUB_REPOSITORY" --title "Sonicprobe $TAG" --notes-file "docs/release-${TAG#v}.md"
+          fi

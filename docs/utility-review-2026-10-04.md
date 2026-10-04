@@ -27,7 +27,7 @@ input combination or thread interleaving. No application deployment is involved.
 | `threading_udp_server` | Same source/control-flow review and tests as TCP | Same lifecycle limitations; legacy HTTP-named aliases retained |
 | `workerpool` | All methods read; existing producer/backpressure, callback, recycling, failure and shutdown tests rerun | No formal scheduling/fairness proof; running user callbacks cannot be forcibly stopped |
 | `moresynchro` | All methods read; existing ownership, reentrancy, writer timeout and interruption tests rerun | No exhaustive scheduling proof; Python 2 clock fallback remains wall time |
-| `keystore` | All methods read; existing global/section lock, creation race and error cleanup tests rerun | Concurrent section deletion/recreation and explicit section-lock lifetimes still need a dedicated lifecycle design/review; do not infer comprehensive race freedom from current tests |
+| `keystore` | All methods read; existing global/section lock, creation race and error cleanup tests rerun | Follow-up lifecycle corrections are now merged in PR #13; see [Keystore lifecycle review](keystore-lifecycle-review.md) for contracts, tests and remaining limits |
 | `http_json_server` | Entire shim read; existing architecture/import tests rerun | Explicit HTTPdis compatibility import only; not a new generic dependency |
 | `BackSQL/__init__`, `libs/__init__` | Package initializers read | Backend import registration remains process-global |
 

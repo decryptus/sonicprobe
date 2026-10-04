@@ -15,26 +15,30 @@ Even a completed module review is not a proof that it contains no further bugs.
 
 | Module under `sonicprobe/libs` | Status in this pass |
 | --- | --- |
-| `BackSQL/backmysql.py` | No complete function-by-function review in this pass |
-| `BackSQL/backpostgresql.py` | No complete function-by-function review in this pass |
-| `BackSQL/backsqlite3.py` | No complete function-by-function review in this pass |
-| `anysql.py` | No complete function-by-function review in this pass |
-| `daemonize.py` | No complete function-by-function review in this pass |
-| `gencert.py` | No complete function-by-function review in this pass |
-| `http_json_server.py` | No complete function-by-function review in this pass |
-| `keystore.py` | No complete function-by-function review in this pass |
-| `moresynchro.py` | No complete function-by-function review in this pass |
-| `mysql_config_parser.py` | No complete function-by-function review in this pass |
-| `network.py` | Reviewed in this pass; corrections and tests in a separate PR |
-| `openvpn.py` | No complete function-by-function review in this pass |
-| `sp_serial.py` | No complete function-by-function review in this pass |
-| `threading_tcp_server.py` | No complete function-by-function review in this pass |
-| `threading_udp_server.py` | No complete function-by-function review in this pass |
-| `urisup.py` | No complete function-by-function review in this pass |
-| `workerpool.py` | No complete function-by-function review in this pass |
-| `xbstream.py` | No complete function-by-function review in this pass |
-| `xml2dict.py` | No complete function-by-function review in this pass |
-| `xys.py` | Reviewed in PR #10; awaiting merge approval |
+| `BackSQL/backmysql.py` | Source and behavior reviewed; see utility review and its limits |
+| `BackSQL/backpostgresql.py` | Source and behavior reviewed; see utility review and its limits |
+| `BackSQL/backsqlite3.py` | Source and behavior reviewed; see utility review and its limits |
+| `anysql.py` | Source and behavior reviewed; see utility review and its limits |
+| `daemonize.py` | Source and behavior reviewed; see utility review and its limits |
+| `gencert.py` | Source and behavior reviewed; see utility review and its limits |
+| `http_json_server.py` | Source and behavior reviewed; see utility review and its limits |
+| `keystore.py` | Dedicated lifecycle corrections in PR #13; see Keystore review |
+| `moresynchro.py` | Source and behavior reviewed; see utility review and its limits |
+| `mysql_config_parser.py` | Source and behavior reviewed; see utility review and its limits |
+| `network.py` | Reviewed and corrected in PR #11; see network review |
+| `openvpn.py` | Source and behavior reviewed; see utility review and its limits |
+| `sp_serial.py` | Source and behavior reviewed; see utility review and its limits |
+| `threading_tcp_server.py` | Source and behavior reviewed; see utility review and its limits |
+| `threading_udp_server.py` | Source and behavior reviewed; see utility review and its limits |
+| `urisup.py` | Source and behavior reviewed; see utility review and its limits |
+| `workerpool.py` | Source and behavior reviewed; see utility review and its limits |
+| `xbstream.py` | Source and behavior reviewed; see utility review and its limits |
+| `xml2dict.py` | Source and behavior reviewed; see utility review and its limits |
+| `xys.py` | Reviewed and corrected in PR #10; see XYS guide |
+
+All four review PRs (#10–#13) are merged for 0.3.57. Detailed evidence and limits:
+[utility review](utility-review-2026-10-04.md),
+[Keystore lifecycle review](keystore-lifecycle-review.md), and [XYS guide](xys.md).
 
 XYS evidence: [PR #10](https://github.com/decryptus/sonicprobe/pull/10).
 Network evidence and deliberately retained limitations:
