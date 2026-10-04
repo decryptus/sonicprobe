@@ -247,8 +247,10 @@ def decode_idn(value):
         try:
             return value.decode('idna')
         except UnicodeDecodeError:
-            # Preserve the existing UTF-8 text fallback.
-            return ensure_text(value)
+            # Only actual non-ASCII UTF-8 input needs this fallback. Newer
+            # codecs also use UnicodeDecodeError for invalid ASCII A-labels.
+            decoded = ensure_text(value)
+            return decoded if any(ord(char) > 127 for char in decoded) else False
     except UnicodeError:
         return False
 

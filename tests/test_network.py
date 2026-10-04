@@ -4,6 +4,10 @@ import socket
 import unittest
 from six import binary_type, text_type
 from sonicprobe.libs import network, urisup
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 
 _IPV6_VALID = ('::', '::1', '2001:db8::1', '1:2:3:4:5:6:7:8',
@@ -146,6 +150,15 @@ class DomainTests(unittest.TestCase):
                          {'domain': 'xn--bcher-kva.example', 'wildcard': True})
         for value in ('*example.org', 'www.*.org', '*.*.org', '*.example.org\n'):
             self.assertFalse(network.valid_domain_cert(value))
+
+    def test_ascii_idna_decode_errors_do_not_take_utf8_fallback(self):
+        class InvalidLabel(binary_type):
+            def decode(self, encoding='utf-8', errors='strict'):
+                if encoding == 'idna':
+                    raise UnicodeDecodeError('idna', b'xn--', 0, 4, 'invalid label')
+                return super(InvalidLabel, self).decode(encoding, errors)
+        with mock.patch.object(network, 'ensure_binary', return_value=InvalidLabel(b'xn--')):
+            self.assertFalse(network.decode_idn('xn--'))
 
     def test_certlord_subdomain_policy_is_preserved(self):
         mask = network.MASK_SUB_DOMAIN_TLD
