@@ -6,6 +6,12 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
+## Current release: 0.3.57
+
+XYS, network validation, utility I/O and Keystore lifecycle corrections.
+Read the [release notes and compatibility changes](docs/release-0.3.57.md)
+before upgrading, especially if you combine global and section locks.
+
 ## What is here?
 
 | Area | Modules |
@@ -142,6 +148,7 @@ reject synthetic input markers and check that valid documents still pass.
 
 ```sh
 python -m pip install -e . mock
+python .github/scripts/check-test-collection.py --runner unittest tests
 python -m unittest discover -s tests -v
 python -m pip install build twine
 python -m build
@@ -152,7 +159,8 @@ CI tests core workers, helpers, SQL and local server behavior on the configured
 interpreter matrix. PyPI publishing is gated by these tests and artifact validation.
 Update `VERSION`, `RELEASE` and `setup.yml` together. Merging to master creates a
 new `vX.Y.Z` tag and publishes via Trusted Publishing (`decryptus/sonicprobe`,
-workflow `pypi.yml`, environment `pypi`). Existing tags are never overwritten.
+workflow `pypi.yml`, environment `pypi`). Existing tags are never overwritten. A GitHub release with versioned notes and
+distributions is created after successful PyPI publication.
 
 License: GPL-3.0-or-later; original module copyrights remain in the source.
 
