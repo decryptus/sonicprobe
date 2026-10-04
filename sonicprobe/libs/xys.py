@@ -1,144 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2008-2019 The Wazo Authors
+# Copyright (C) 2008-2010 Avencall
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""sonicprobe.libs.xys
+"""XIVO YAML Schema: compile trusted schemas and validate Python data.
 
-XIVO YAML Schema - v0.01
-
-Copyright (C) 2008-2010 Avencall
-
-The basic idea behind XYS is to write a schema as much as possible as
-you would write documents that are valid by this schema.
-
-If a mapping is needed at any level in documents, you just have to put
-one at the same place in the schema.  The keys in the schema are the
-ones that are allowed in documents.  If a key in the schema is a string
-that ends with a '?' then it is optional and when it appears in a
-document it does not end with this final '?'.  A value in the schema
-contains a sub-schema that will be used to validate each corresponding
-value in documents.
-
-This type equivalence principle stands valid for sequences and scalars.
-If a sequence is needed in documents, you write, in the schema, a
-sequence of only one element.  This element is a sub-schema that will be
-used to validate each element of each corresponding sequence in
-documents.  The type of a scalar in the schema is used to validate the
-type of each corresponding scalar in documents.
-
-Schema example:
----
-peoples:
-   - name: ''
-     age?: 20
-     sex?: ''
-numbers?: [ 1 ]
-car?:
-   brand: ''
-   horsepower?: 130
-...
-
-Document 1 - Valid:
----
-peoples:
-   - name: Xilun
-   - name: Steven
-     age: 42
-     sex: M
-numbers:
-   - 1
-   - 3
-   - 42
-car:
-   brand: Ferrari
-...
-
-Document 2 - Valid:
----
-peoples: []
-...
-
-Document 3 - Invalid:
----
-numbers: [ 1 ]
-...
-
-Document 4 - Invalid:
----
-peoples:
-   - name: 10
-...
-
-A typical feature of schema languages is the capability to describe
-usual subsets for scalars, for example it can be useful to declare that
-some strings in documents must start with "fortytwo_".  This is done in
-XYS using personalized YAML tags.  Standard XYS qualifiers are provided;
-their tags starts with '!~~'.  An application can also define its own
-qualifiers with tags starting with '!~' (but not '!~~').  Some
-qualifying tags will have parameters, for example !~between(42,128) is a
-tag which means that corresponding integers in documents must be between
-42 and 128.  Because of the YAML grammar, these tags must be integers in
-decimal representation or symbols of the form /[A-Za-z_][A-Za-z0-9_]*/
-and there must be no space character between the opening parenthesis and
-the closing one.  Qualifiers which never take parameters must be written
-with no parenthesis.
-
-Example of schema with qualifiers:
----
-resolvConf:
-   search?: !~search_domain bla.tld
-   nameservers?: !~~seqlen(1,3) [ !~ipv4_address 192.168.0.200 ]
-ipConfs:
-   !~~prefixedDec static_:
-      address: !~ipv4_address 192.168.0.100
-      netmask: !~ipv4_address 255.255.255.0
-      broadcast?: !~ipv4_address 192.168.0.255
-      gateway?: !~ipv4_address 192.168.0.254
-      mtu?: !~~between(68,1500) 1500
-...
-
-Application-specific validation functions:
-
-import re
-
-def ipv4_address(nstr, schema):
-    elts = nstr.split('.', 4)
-    if len(elts) != 4:
-        return False
-    for e in elts:
-        try:
-            i = int(e)
-        except ValueError:
-            return False
-        if i < 0 or i > 255:
-            return False
-    return True
-
-def search_domain(nstr, schema):
-    domain_label_ok = \\
-        re.compile(r'[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$').match
-    return nstr and len(nstr) <= 251 and \\
-           all((((len(label) <= 63)
-                 and domain_label_ok(label))
-                for label in nstr.split('.')))
-
-
-Registration of above functions:
-
-xys.add_validator(search_domain, u'!!str')
-xys.add_validator(ipv4_address, u'!!str')
-
-
-In this schema, most scalars are used just as an example of what can
-appear in a valid document.  An exception is for !~~prefixedDec static_,
-where static_ is used to check that in documents, keys start with
-static_ (with a decimal in their right part).  As you can see in the
-registration, qualifying XYS types derive from base YAML types.  The
-base types are used for two purposes: during construction of the
-internal representation of the schema, scalars are converted according
-to the base type specification; and when validating a document, the type
-of scalars it contains is checked against the specified base type prior
-to the call to the validation function.
-
+See docs/xys.md for syntax, mutation semantics and extension contracts.
 """
 
 from collections import namedtuple
@@ -165,6 +31,8 @@ Optional = namedtuple('Optional', 'content min_len max_len modifier')
 OptionalNull = namedtuple('OptionalNull', 'content min_len max_len modifier')
 Mandatory = namedtuple('Mandatory', 'content min_len max_len modifier')
 
+RE_INTEGER_PARAM = re.compile(r'^[+-]?[0-9]+\Z').match
+
 RE_MATCH_TYPE           = type(re.compile('').match)
 RE_MATCH_CSTR           = re.compile(r'^(.+?)' +
                                      r'(?:([\?\!\+\*])(?:\[(?:([0-9]+)|([0-9]*),([0-9]*))\]|([\*\+\?]))?)?' +
@@ -179,6 +47,26 @@ _modifiers      = {}
 _regexs         = {}
 
 
+class SchemaLoader(yaml.SafeLoader):
+    """Keep schema tags separate from PyYAML's process-wide constructors."""
+
+    def construct_mapping(self, node, deep=False):
+        # Check explicit keys before expanding merges; YAML merge overrides
+        # remain supported, but repeated explicit keys are ambiguous.
+        seen = set()
+        for key_node, _ in node.value:
+            if key_node.tag == 'tag:yaml.org,2002:merge':
+                continue
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                if key in seen:
+                    raise ValueError('Duplicate XYS schema key')
+                seen.add(key)
+            except TypeError:
+                raise ValueError('Unhashable XYS schema key')
+        return super(SchemaLoader, self).construct_mapping(node, deep=deep)
+
+
 class Any(object): # pylint: disable=too-few-public-methods,useless-object-inheritance
     pass
 
@@ -191,11 +79,11 @@ def construct_yaml_any(loader, node): # pylint: disable=unused-argument
 def construct_yaml_scalar(loader, node): # pylint: disable=unused-argument
     return Scalar()
 
-yaml.add_constructor('tag:yaml.org,2002:any', construct_yaml_any)
-yaml.add_constructor('tag:yaml.org,2002:scalar', construct_yaml_scalar)
+SchemaLoader.add_constructor('tag:yaml.org,2002:any', construct_yaml_any)
+SchemaLoader.add_constructor('tag:yaml.org,2002:scalar', construct_yaml_scalar)
 
 
-class ContructorValidatorNode(object): # pylint: disable=useless-object-inheritance
+class ConstructorValidatorNode(object): # pylint: disable=useless-object-inheritance
     def __init__(self, tag, base_tag, validator, mode = 'generic', xmin = None, xmax = None):
         self.tag       = tag
         self.base_tag  = base_tag
@@ -229,15 +117,21 @@ class ContructorValidatorNode(object): # pylint: disable=useless-object-inherita
         return m.group(4)
 
     def __call__(self, loader, node):
+        # PyYAML reuses this constructor across nodes, schemas and threads.
+        # Parse occurrence bounds on a private copy, never on the registration.
+        current = copy.copy(self)
+        node = copy.copy(node)
         if isinstance(node.value, string_types):
-            node.value = self._parser(node.value)
-
+            node.value = current._parser(node.value)
+        if current.min is not None and current.max is not None and current.min > current.max:
+            raise ValueError('Invalid XYS validator bounds')
         return ValidatorNode(
-            _construct_node(loader, node, self.base_tag),
-            self.validator,
-            self.mode,
-            self.min,
-            self.max)
+            _construct_node(loader, node, current.base_tag),
+            current.validator, current.mode, current.min, current.max)
+
+
+# Preserve imports of the historical misspelling.
+ContructorValidatorNode = ConstructorValidatorNode
 
 
 def _construct_node(loader, node, base_tag):
@@ -257,17 +151,20 @@ def _construct_node(loader, node, base_tag):
 
 
 def _maybe_int(s):
-    "Coerces to int if starts with a digit else return s"
-    if s and s[0] in "0123456789":
+    "Coerce complete decimal integers; keep other symbols unchanged."
+    if RE_INTEGER_PARAM(s):
         return int(s)
     return s
 
 
-def _split_params(tag_prefix, tag_suffix):
+def _split_params(tag_prefix, tag_suffix, numeric=True):
     "Split comma-separated tag_suffix[:-1] and map with _maybe_int"
     if tag_suffix[-1:] != ')':
         raise ValueError("unbalanced parenthesis in type %s%s" % (tag_prefix, tag_suffix))
-    return list(map(_maybe_int, tag_suffix[:-1].split(',')))
+    params = tag_suffix[:-1].split(',')
+    if not all(params):
+        raise ValueError('Empty XYS validator parameter')
+    return list(map(_maybe_int, params)) if numeric else params
 
 
 def add_callback(name, value):
@@ -326,8 +223,8 @@ def add_validator(validator, base_tag, tag=None):
     for xid, opts in iteritems(_VALIDATOR_MODES):
         mtag = "%s%s" % (tag, xid)
 
-        yaml.add_constructor(mtag,
-                             ContructorValidatorNode(mtag,
+        SchemaLoader.add_constructor(mtag,
+                             ConstructorValidatorNode(mtag,
                                                      base_tag,
                                                      validator,
                                                      opts['name'],
@@ -352,14 +249,16 @@ def add_parameterized_validator(param_validator, base_tag, tag_prefix=None):
     if not tag_prefix:
         tag_prefix = u'!~%s(' % param_validator.__name__
     def multi_constructor(loader, tag_suffix, node):
+        params = _split_params(tag_prefix, tag_suffix,
+                               numeric=param_validator not in (enum, ienum))
         def temp_validator(node, schema):
-            return param_validator(node, schema, *_split_params(tag_prefix, tag_suffix))
+            return param_validator(node, schema, *params)
         temp_validator.__name__ = str(tag_prefix + tag_suffix)
-        return ContructorValidatorNode(base_tag,
+        return ConstructorValidatorNode(base_tag,
                                        base_tag,
                                        temp_validator)(loader, node)
 
-    yaml.add_multi_constructor(tag_prefix, multi_constructor)
+    SchemaLoader.add_multi_constructor(tag_prefix, multi_constructor)
 
 
 def _add_validator_internal(validator, base_tag):
@@ -378,7 +277,7 @@ def enum(nstr, schema, *symbols): # pylint: disable-msg=W0613
         corresponding strings in documents must be in the set of
         given symbols.
     """
-    return nstr in symbols
+    return nstr in tuple(text_type(symbol) for symbol in symbols)
 
 
 def ienum(nstr, schema, *symbols): # pylint: disable-msg=W0613
@@ -386,7 +285,7 @@ def ienum(nstr, schema, *symbols): # pylint: disable-msg=W0613
     !~~ienum(symb1[,symb2[,...]])
     Like enum but case insensitive
     """
-    return nstr.lower() in (symbol.lower() for symbol in symbols)
+    return nstr.lower() in (text_type(symbol).lower() for symbol in symbols)
 
 
 def seqlen(lst, schema, min_len, max_len): # pylint: disable-msg=W0613
@@ -488,7 +387,10 @@ def uint(nstr, schema): # pylint: disable=unused-argument
     if isinstance(nstr, string_types):
         if not nstr.isdigit():
             return False
-        nstr = int(nstr)
+        try:
+            nstr = int(nstr)
+        except ValueError:
+            return False
     elif not isinstance(nstr, integer_types):
         return False
 
@@ -597,6 +499,9 @@ def _qualify_map(key, content):
         min_len = 0
         max_len = 1
 
+    if min_len is not None and max_len is not None and min_len > max_len:
+        raise ValueError('Invalid XYS field length bounds')
+
     if m.group(7):
         modifier = m.group(7).split(',')
 
@@ -615,21 +520,30 @@ def _qualify_map(key, content):
     return m.group(1), Mandatory(content, min_len, max_len, modifier)
 
 
-def _transschema(x):
-    """
-    Transform a schema, once loaded from its YAML representation, to its
-    final internal representation
-    """
-    if isinstance(x, tuple):
-        return x.__class__(_transschema(x[0]), *x[1:])
-
-    if isinstance(x, dict):
-        return dict((_qualify_map(key, _transschema(val)) for key, val in iteritems(x)))
-
-    if isinstance(x, list):
-        return list(map(_transschema, x))
-
-    return x
+def _transschema(value, active=None):
+    """Compile field qualifiers, rejecting cycles and normalized duplicates."""
+    if not isinstance(value, (tuple, dict, list)):
+        return value
+    if active is None:
+        active = set()
+    marker = id(value)
+    if marker in active:
+        raise ValueError('Recursive XYS schemas are not supported')
+    active.add(marker)
+    try:
+        if isinstance(value, tuple):
+            return value.__class__(_transschema(value[0], active), *value[1:])
+        if isinstance(value, dict):
+            result = {}
+            for key, val in iteritems(value):
+                key, val = _qualify_map(key, _transschema(val, active))
+                if key in result:
+                    raise ValueError('Duplicate qualified XYS schema key')
+                result[key] = val
+            return result
+        return [_transschema(item, active) for item in value]
+    finally:
+        active.remove(marker)
 
 
 def _valid_len(key, value, min_len, max_len):
@@ -655,10 +569,10 @@ def _valid_len(key, value, min_len, max_len):
 
 def load(src):
     """
-    Parse the first XYS schema in a stream and produce the corresponding
+    Parse one XYS schema in a stream and produce the corresponding
     internal representation.
     """
-    return _transschema(helpers.load_yaml(src, Loader = yaml.Loader))
+    return _transschema(helpers.load_yaml(src, Loader = SchemaLoader))
 
 
 Nothing = object()
@@ -673,190 +587,115 @@ def _validate_node(document, schema, log_qualifier = True):
         return False
     return True
 
+def _apply_modifiers(document, key, value, modifiers):
+    """Preserve in-place normalization, calling each modifier exactly once."""
+    for name in modifiers:
+        if name in _modifiers:
+            value = _modifiers[name](value)
+        elif hasattr(value, name):
+            value = getattr(value, name)()
+        document[key] = value
+    return value
+
+
+def _validate_field(document, key, value, schema):
+    if not isinstance(schema, (Optional, OptionalNull, Mandatory)):
+        return validate(value, schema)
+    nullable = isinstance(schema, OptionalNull)
+    optional = isinstance(schema, (Optional, OptionalNull))
+    if nullable and value is None:
+        return True
+    # Historical optional-empty semantics are retained, including after modifiers.
+    if optional and schema.min_len == 0 and value == '':
+        return True
+    value = _apply_modifiers(document, key, value, schema.modifier)
+    if nullable and value is None:
+        return True
+    if optional and schema.min_len == 0 and value == '':
+        return True
+    return (_valid_len(key, value, schema.min_len, schema.max_len) is not False
+            and validate(value, schema.content))
+
+
+def _validate_key_group(document, remaining, key_schema, value_schema):
+    matched = []
+    for key, value in iteritems(remaining):
+        if not validate(key, key_schema, False):
+            continue
+        if not _validate_field(document, key, value, value_schema):
+            return False
+        matched.append(key)
+    count = len(matched)
+    minimum = key_schema.min or 0
+    if key_schema.mode == 'mandatory':
+        minimum = max(1, minimum)
+    if count < minimum or (key_schema.max is not None and count > key_schema.max):
+        LOG.error('Invalid number of document keys for qualifier %s',
+                  key_schema.validator.__name__)
+        return False
+    for key in matched:
+        del remaining[key]
+    return True
+
+
 def _validate_dict(document, schema):
     if not isinstance(document, dict):
         LOG.error("wanted a dictionary, got a %s", document.__class__.__name__)
         return False
-
-    generic = []
-    optional = {}
-    optionalnull = {}
-    mandatory = []
-
-    for key, schema_val in iteritems(schema):
+    mandatory, generic, optional = [], [], {}
+    for key, value in iteritems(schema):
         if isinstance(key, ValidatorNode):
-            if key.mode == 'mandatory':
-                mandatory.append((key, schema_val))
-            else:
-                generic.append((key, schema_val))
-        elif isinstance(schema_val, Optional):
-            optional[key] = schema_val
-        elif isinstance(schema_val, OptionalNull):
-            optional[key] = schema_val
-            optionalnull[key] = True
+            target = mandatory if key.mode == 'mandatory' else generic
+            target.append((key, value))
+        elif isinstance(value, (Optional, OptionalNull)):
+            optional[key] = value
         else:
-            mandatory.append((key, schema_val))
+            mandatory.append((key, value))
 
-    doc_copy = document.copy()
-
-    for key, schema_val in mandatory:
+    remaining = document.copy()
+    for key, value_schema in mandatory:
         if isinstance(key, ValidatorNode):
-            nb = 0
-            rm = []
-            for doc_key, doc_val in iteritems(doc_copy):
-                if not validate(doc_key, key, False):
-                    continue
-
-                nb += 1
-
-                if validate(doc_val, schema_val):
-                    rm.append(doc_key)
-                else:
-                    return False
-
-            if nb == 0:
-                LOG.error("missing document %r for qualifier: %r",
-                          key.content,
-                          key.validator.__name__)
+            if not _validate_key_group(document, remaining, key, value_schema):
                 return False
-
-            if key.min is not None and nb < key.min:
-                LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)",
-                          key.content,
-                          key.validator.__name__,
-                          key.min,
-                          nb)
-                return False
-
-            if key.max is not None and nb > key.max:
-                LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)",
-                          key.content,
-                          key.validator.__name__,
-                          key.max,
-                          nb)
-                return False
-
-            for x in rm:
-                del doc_copy[x]
             continue
-
-        doc_val = doc_copy.get(key, Nothing)
-        if doc_val is Nothing:
-            LOG.error("missing key %r in document", key)
+        value = remaining.get(key, Nothing)
+        if value is Nothing:
+            LOG.error('Missing required document key')
             return False
-
-        if helpers.is_scalar(schema_val):
-            if not validate(doc_val, schema_val):
-                return False
-            del doc_copy[key]
-            continue
-
-        if schema_val.modifier:
-            for modname in schema_val.modifier:
-                if modname in _modifiers:
-                    document[key] = _modifiers[modname](document[key])
-                    doc_val = _modifiers[modname](doc_val)
-                elif hasattr(doc_val, modname):
-                    document[key] = getattr(document[key], modname)()
-                    doc_val = getattr(doc_val, modname)()
-
-        if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
+        if not _validate_field(document, key, value, value_schema):
             return False
-
-        if not validate(doc_val, schema_val.content):
+        del remaining[key]
+    for key, value_schema in generic:
+        if not _validate_key_group(document, remaining, key, value_schema):
             return False
-
-        del doc_copy[key]
-
-    for key, schema_val in generic:
-        nb = 0
-        rm = []
-
-        for doc_key, doc_val in iteritems(doc_copy):
-            if not validate(doc_key, key, False):
-                continue
-
-            nb += 1
-
-            if validate(doc_val, schema_val):
-                rm.append(doc_key)
-            else:
-                return False
-
-        if key.min is not None and nb < key.min:
-            LOG.error("no enough document %r for qualifier: %r (min: %r, found: %r)",
-                      key.content,
-                      key.validator.__name__,
-                      key.min, nb)
+    for key, value in iteritems(remaining):
+        value_schema = optional.get(key, Nothing)
+        if value_schema is Nothing:
+            LOG.error('Forbidden document key')
             return False
-
-        if key.max is not None and nb > key.max:
-            LOG.error("too many document %r for qualifier: %r (max: %r, found: %r)",
-                      key.content,
-                      key.validator.__name__,
-                      key.max, nb)
+        if not _validate_field(document, key, value, value_schema):
             return False
-
-        for x in rm:
-            del doc_copy[x]
-        continue
-
-    for key, doc_val in iteritems(doc_copy):
-        schema_val = optional.get(key, Nothing)
-        if schema_val is Nothing:
-            LOG.error("forbidden key in document")
-            return False
-
-        if key in optionalnull and doc_val is None:
-            continue
-
-        if schema_val.min_len == 0 and doc_val is "":
-            continue
-
-        if schema_val.modifier:
-            for modname in schema_val.modifier:
-                if modname in _modifiers:
-                    document[key] = _modifiers[modname](document[key])
-                    doc_val = _modifiers[modname](doc_val)
-                elif hasattr(doc_val, modname):
-                    document[key] = getattr(document[key], modname)()
-                    doc_val = getattr(doc_val, modname)()
-
-            if key in optionalnull and doc_val is None:
-                continue
-
-            if schema_val.min_len == 0 and doc_val is "":
-                continue
-
-        if _valid_len(key, doc_val, schema_val.min_len, schema_val.max_len) is False:
-            return False
-
-        if not validate(doc_val, schema_val.content):
-            return False
-
     return True
+
 
 def _validate_list(document, schema):
     if not isinstance(document, list):
         LOG.error("wanted a list, got a %s", document.__class__.__name__)
         return False
-
-    for elt in document:
-        if len(schema) < 2:
-            if not validate(elt, schema[0]):
-                return False
-        elif isinstance(schema[0], dict):
-            tmp = {}
-            for x in schema:
-                for key, val in iteritems(x):
-                    tmp[key] = val
-            if not validate(elt, tmp):
-                return False
-        else:
-            if not validate(elt, schema[0]):
-                return False
-
-    return True
+    if not schema:
+        if document:
+            LOG.error('Expected an empty document list')
+            return False
+        return True
+    item_schema = schema[0]
+    # Preserve the legacy list-of-mappings shorthand, compiling it once per list.
+    if len(schema) > 1 and isinstance(item_schema, dict):
+        item_schema = {}
+        for part in schema:
+            if not isinstance(part, dict):
+                raise ValueError('XYS mapping list schemas require mapping entries')
+            item_schema.update(part)
+    return all(validate(item, item_schema) for item in document)
 
 # TODO: display the document path to errors, and other error message enhancements
 # TODO: allow error messages from validators
@@ -921,99 +760,3 @@ __all__ = [
     'OptionalNull',
     'Mandatory',
 ]
-
-
-# IDEAS:
-# 04:05 < obk> xilun: You use '?' for optional... do you use '*' and '?' for zero-or-more and one-or-more (in sequences)?
-# 04:05 < obk> '*' and '+' I meant
-# 04:12 < xilun> im not sure where i could put the tag
-# 04:13 < xilun> perhaps an abbreviated form of seqlen
-# 04:13 < xilun> which need to be extended so it supports lengths < and lengths > too, not just ranges
-# 04:22 < obk> xilun: Hmm... good point
-# 04:24 < obk> Of course you could put it in the tag (!*, !+, !?) - that would preclude specifying tags however...
-# 04:24 < obk> Actually - you could postfix the original tag
-# 04:24 < obk> E.g.:
-# 04:24 < obk> ---
-# 04:24 < obk> !?!!str foo:
-# 04:25 < obk> - !*!!int 7
-# 04:25 < obk> ...
-# 04:25 < obk> Means 'foo' is optional and a string, contains zero-or-more integers
-# 04:25 < obk> And of course you'd omit the '!!int', '!!str' etc. 99.9999% of the time
-# 04:25 < obk> ---
-# 04:25 < obk> !? foo:
-# 04:25 < obk> - !* 7
-#
-# NOTE: i'll rather write it like (really? not sure about that)
-# ---
-# !? foo: !*
-#   - 1
-# ...
-#
-# !~~seqlen(3,5) should probably be written like: ![3,5]
-# and it should be possible to do stuff like
-# ![,5] <=> ![0,5]
-# ![3,] <=> ![3,infinity]
-# ![3] <=> exactly 3...
-#
-# NOTE: !{3,5} won't work because of YAML (grammar|parser)
-#
-# So here are the basic (and classic...) equivalences:
-# !* <=> ![,]
-# !+ <=> ![1,]
-# !? <=> ![0,1]
-#
-#
-# IDEA: If, in a schema, a sequence is not qualified, the
-# corresponding part of the document must be a matching sequence
-# in which the
-#
-# schema ex:
-# ---
-# foo:
-#   - kikoo: 1
-#   - lol: 2
-# ...
-#
-# valid document:
-# ---
-# foo:
-#   - kikoo: 42
-#   - lol: 666
-# ...
-#
-# invalid document:
-# ---
-# foo:
-#   - kikoo: 42
-# ...
-#
-# problem if adopted: how to represent optional key in an ordered map?
-# we could try:
-# ---
-# - mandatorykey: bla
-# - !? optionalkey: foo
-# ...
-#
-# But it also seems to mean that the list must have two elements and the second
-# can either be a singleton dictionary or an empty one? (or a null entry maybe?)
-# A simple solution is to use an other qualifying tag. ex:
-# ---
-# - mandatorykey: bla
-# - !$ optionalkey: foo
-# ...
-# possible tags
-# !$    - bad because $ means end of something in regexp syntax)
-# !&    - why not
-# !&?   - could be derived in !&* and !&+ but this starts to be complicated)
-# !#    - not visually attractive
-# !?seq - a little long, also should be !?element but even longer and !?elt is
-#         not derived from YAML basic type.
-# !'    - good because visually small, so you can use the mnemotechnic help
-#         "really small, can disappear" :p
-#
-# for now i prefer !&? (maybe along with derivatives) or !'
-#
-#
-# TODO: support (simple) notion of uniqueness
-#
-# 16:10 < xilun> i think 'ill try to add automatic typing of documents according to the schema too
