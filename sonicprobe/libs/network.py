@@ -7,7 +7,7 @@ import re
 import socket
 import struct
 
-from six import ensure_binary, ensure_str, ensure_text, integer_types, string_types, text_type as stext_type
+from six import binary_type, ensure_binary, ensure_str, ensure_text, integer_types, string_types, text_type as stext_type
 
 from sonicprobe.helpers import maketrans
 
@@ -42,15 +42,20 @@ MASK_HOST_ALL           = (MASK_IP_ALL |
 MASK_EMAIL_HOST_ALL     = (MASK_DOMAIN_TLD |
                            MASK_DOMAIN_IDN)
 
-RE_DOMAIN_PART          = re.compile(r'^(' + DOMAIN_PART + r')$').match
-RE_DOMAIN               = re.compile(r'^(?:' + DOMAIN_PART + r'\.)*(?:' + DOMAIN_PART + r')$').match
-RE_DOMAIN_TLD           = re.compile(r'^(?:' + DOMAIN_PART + r'\.)+(?:' + DOMAIN_PART + r')$').match
-RE_SUB_DOMAIN_TLD       = re.compile(r'^(?:' + DOMAIN_PART + r'\.){2,}(?:' + DOMAIN_PART + r')$').match
+RE_DOMAIN_PART          = re.compile(r'^(' + DOMAIN_PART + r')\Z').match
+RE_DOMAIN               = re.compile(r'^(?:' + DOMAIN_PART + r'\.)*(?:' + DOMAIN_PART + r')\Z').match
+RE_DOMAIN_TLD           = re.compile(r'^(?:' + DOMAIN_PART + r'\.)+(?:' + DOMAIN_PART + r')\Z').match
+RE_SUB_DOMAIN_TLD       = re.compile(r'^(?:' + DOMAIN_PART + r'\.){2,}(?:' + DOMAIN_PART + r')\Z').match
 RE_EMAIL_LOCALPART      = re.compile(r'^(?:[' + ATOM + r']+(?:\.[' + ATOM + r']+)*|' + \
                                          r'"(?:[' + QTEXT + r']|' + \
-                                             r'\\[' + QUOTEDPAIR + r'])+")$').match
+                                             r'\\[' + QUOTEDPAIR + r'])+")\Z').match
 RE_MAC_ADDR_NORMALIZE   = re.compile(r'([A-F0-9]{1,2})[-: ]?', re.I).findall
-RE_MAC_ADDRESS          = re.compile(r'^([A-F0-9]{2}:){5}([A-F0-9]{2})$', re.I).match
+RE_MAC_ADDRESS          = re.compile(r'^([A-F0-9]{2}:){5}([A-F0-9]{2})\Z', re.I).match
+
+RE_IPV6_H16 = re.compile(r'^[0-9a-fA-F]{1,4}\Z').match
+RE_IPV4_EMBEDDED = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}\Z').match
+RE_MAC_ADDR_INPUT = re.compile(r'^(?:[A-F0-9]{1,2}[-: ]?){6}\Z', re.I).match
+RE_MAC_ADDR_DOTTED = re.compile(r'^(?:[A-F0-9]{4}\.){2}[A-F0-9]{4}\Z', re.I).match
 
 
 def __all_in(s, charset):
@@ -69,11 +74,20 @@ def ipv4_to_long(addr):
 def long_to_ipv4(addr):
     return socket.inet_ntoa(struct.pack('!L', addr))
 
-def normalize_ipv4_dotdec(addr):
-    try:
-        return socket.inet_ntoa(socket.inet_aton(addr))
-    except socket.error:
+def _packed_ipv4(addr):
+    # inet_aton deliberately retains legacy numeric IPv4 forms. Reject trailing
+    # whitespace/junk that some libc implementations otherwise ignore.
+    if not isinstance(addr, string_types) or not addr or any(c.isspace() for c in addr):
         return False
+    try:
+        return socket.inet_aton(addr)
+    except (socket.error, TypeError, ValueError, UnicodeError):
+        return False
+
+
+def normalize_ipv4_dotdec(addr):
+    packed = _packed_ipv4(addr)
+    return socket.inet_ntoa(packed) if packed is not False else False
 
 def valid_bitmask_ipv4(bit):
     if isinstance(bit, integer_types):
@@ -82,7 +96,10 @@ def valid_bitmask_ipv4(bit):
     if not isinstance(bit, string_types):
         return False
 
-    return bit.isdigit() and 0 < int(bit) < 33
+    try:
+        return bit.isdigit() and 0 < int(bit) < 33
+    except ValueError:
+        return False
 
 def bitmask_to_netmask_ipv4(bit):
     if not valid_bitmask_ipv4(bit):
@@ -91,15 +108,11 @@ def bitmask_to_netmask_ipv4(bit):
     return long_to_ipv4((0xFFFFFFFF >> (32 - int(bit))) << (32 - int(bit)))
 
 def valid_ipv4(addr):
-    "True <=> valid"
-    try:
-        socket.inet_aton(addr)
-        return True
-    except socket.error:
-        return False
+    """Validate the historical inet_aton grammar, including short IPv4 forms."""
+    return _packed_ipv4(addr) is not False
 
 def valid_ipv4_dotdec(potential_ipv4):
-    if not isinstance(potential_ipv4, string_types):
+    if not isinstance(potential_ipv4, string_types) or not potential_ipv4:
         return False
 
     if potential_ipv4[0] not in (HEXDIG + "xX") \
@@ -120,11 +133,16 @@ def valid_ipv4_dotdec(potential_ipv4):
     return True
 
 def valid_ipv6_h16(h16):
-    try:
-        i = int(h16, 16)
-        return 0 <= i <= 65535
-    except ValueError:
+    """One to four ASCII hexadecimal digits, without signs or whitespace."""
+    return isinstance(h16, string_types) and bool(RE_IPV6_H16(h16))
+
+
+def _valid_ipv4_embedded(value):
+    """IPv6 dotted tails use decimal octets, not inet_aton extensions."""
+    if not RE_IPV4_EMBEDDED(value):
         return False
+    return all((part == '0' or not part.startswith('0')) and int(part) <= 255
+               for part in value.split('.'))
 
 def valid_ipv6_right(right_v6):
     if not isinstance(right_v6, string_types):
@@ -140,7 +158,7 @@ def valid_ipv6_right(right_v6):
         return False
 
     if '.' in array_v6[-1]:
-        if not valid_ipv4_dotdec(array_v6[-1]):
+        if not _valid_ipv4_embedded(array_v6[-1]):
             return False
         h16_count = 2
         array_v6 = array_v6[:-1]
@@ -208,29 +226,31 @@ def parse_ipv4_cidr(cidr):
     return r
 
 def encode_idn(value, text_type = False):
+    """Encode using Python's IDNA codec; retain bytes/text return options."""
     if not isinstance(value, string_types):
         return False
+    try:
+        if not isinstance(value, stext_type):
+            value = ensure_str(value)
+        encoded = value.encode('idna')
+        return ensure_text(encoded) if text_type else ensure_binary(encoded)
+    except UnicodeError:
+        return False
 
-    if not isinstance(value, stext_type):
-        value = ensure_str(value)
-
-    if text_type:
-        return ensure_text(value.encode('idna'))
-
-    return ensure_binary(value.encode('idna'))
 
 def decode_idn(value):
-    if not isinstance(value, string_types):
+    """Decode IDNA text or encoded bytes; malformed encodings return False."""
+    if not isinstance(value, string_types + (binary_type,)):
         return False
-
-    value = ensure_binary(value)
-
     try:
-        value = value.decode('idna')
-    except UnicodeDecodeError:
-        pass
-
-    return ensure_text(value)
+        value = ensure_binary(value)
+        try:
+            return value.decode('idna')
+        except UnicodeDecodeError:
+            # Preserve the existing UTF-8 text fallback.
+            return ensure_text(value)
+    except UnicodeError:
+        return False
 
 def valid_domain_part(domain_part):
     if isinstance(domain_part, string_types) \
@@ -274,7 +294,7 @@ def valid_host(host, host_mask = MASK_HOST_ALL):
         return True
 
     if host_mask & MASK_DOMAIN_IDN:
-        host = encode_idn(host)
+        host = encode_idn(host, text_type=True)
 
     if host_mask & MASK_DOMAIN and valid_domain(host):
         return True
@@ -289,7 +309,7 @@ def valid_host(host, host_mask = MASK_HOST_ALL):
 
 def parse_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
     r = {'domain':   domain,
-         'wildcard': True}
+         'wildcard': False}
 
     if not isinstance(r['domain'], string_types):
         return False
@@ -299,7 +319,7 @@ def parse_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
         r['wildcard'] = True
 
     if domain_mask & MASK_DOMAIN_IDN:
-        r['domain'] = encode_idn(r['domain'])
+        r['domain'] = encode_idn(r['domain'], text_type=True)
 
     if domain_mask & MASK_DOMAIN and valid_domain(r['domain']):
         return r
@@ -316,6 +336,8 @@ def valid_domain_cert(domain, domain_mask = MASK_DOMAIN_ALL):
     return bool(parse_domain_cert(domain, domain_mask))
 
 def valid_port_number(port):
+    if isinstance(port, bool) or not isinstance(port, integer_types + string_types):
+        return False
     try:
         i = int(port)
         return 0 <= i <= 65535
@@ -381,7 +403,7 @@ def valid_email(email, host_mask = MASK_EMAIL_HOST_ALL):
         return False
 
     pos         = email.rfind('@')
-    if pos < 2:
+    if pos < 1:
         return False
 
     localpart   = email[0:pos]
@@ -394,7 +416,8 @@ def valid_email(email, host_mask = MASK_EMAIL_HOST_ALL):
     return True
 
 def normalize_mac_address(macaddr):
-    if not isinstance(macaddr, string_types):
+    if not isinstance(macaddr, string_types) \
+       or not (RE_MAC_ADDR_INPUT(macaddr) or RE_MAC_ADDR_DOTTED(macaddr)):
         return False
 
     m = RE_MAC_ADDR_NORMALIZE(macaddr.upper())
