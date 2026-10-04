@@ -165,3 +165,23 @@ class ResourceContracts(unittest.TestCase):
              mock.patch.object(daemonize.os, 'close') as close:
             daemonize.daemonize()
         close.assert_called_once_with(17)
+
+
+class AdditionalResourceContracts(unittest.TestCase):
+    def test_sqlite_memory_canonicalization_does_not_create_a_file_path(self):
+        self.assertEqual(anysql.c14n_uri('sqlite3::memory:'), 'sqlite3::memory:')
+
+    def test_include_stream_is_closed_when_parser_fails(self):
+        stream = io.StringIO(u'no section header\n')
+        stream.name = '/tmp/included.cnf'
+        with mock.patch.object(mysql_config_parser.os.path, 'isfile', return_value=True), \
+             mock.patch.object(mysql_config_parser.os, 'access', return_value=True), \
+             mock.patch.object(mysql_config_parser.io, 'open', return_value=stream):
+            with self.assertRaises(mysql_config_parser.ParsingError):
+                mysql_config_parser.MySQLConfigParser().read_file(io.StringIO(u'!include /tmp/included.cnf\n'))
+        self.assertTrue(stream.closed)
+
+    def test_include_depth_limit_is_enforced(self):
+        stream = io.StringIO(u'')
+        with self.assertRaises(mysql_config_parser.ParsingError):
+            mysql_config_parser.MySQLConfigParserFilter(stream, ('parent',) * 64)

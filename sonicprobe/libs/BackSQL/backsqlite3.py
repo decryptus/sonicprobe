@@ -34,6 +34,8 @@ def connect_by_uri(uri):
 
 def c14n_uri(uri):
     puri = list(uri_help_split(uri))
+    if puri[PATH] == ':memory:':
+        return uri_help_unsplit(tuple(puri))
     puri[PATH] = os.path.abspath(puri[PATH])
     return uri_help_unsplit(tuple(puri))
 

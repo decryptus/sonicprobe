@@ -69,8 +69,11 @@ class MySQLConfigVersion(object):
         # Each request reflects current files; removed options must not survive.
         self._myconf = MySQLConfigParser()
         for filename in (self._default_file, self._custom_file):
-            with StringIO(ensure_text(self._read_file(filename))) as myconf:
+            myconf = StringIO(ensure_text(self._read_file(filename)))
+            try:
                 self._myconf.read_file(myconf)
+            finally:
+                myconf.close()
 
         if my_vers:
             self._check_conf_versions(self._myconf,
@@ -136,10 +139,13 @@ class MySQLConfigParser(ConfigParser):
         return self.read_file(fp, filename)
 
     def read_file(self, f, source=None):
-        if PY2:
-            return ConfigParser.readfp(self, MySQLConfigParserFilter(f), source)
-
-        return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source) # pylint: disable=no-member
+        filtered = MySQLConfigParserFilter(f)
+        try:
+            if PY2:
+                return ConfigParser.readfp(self, filtered, source)
+            return ConfigParser.read_file(self, filtered, source) # pylint: disable=no-member
+        finally:
+            filtered.close()
 
 
 class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inheritance
@@ -165,6 +171,9 @@ class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inherita
     def readline(self):
         return next(self._iterator, '')
 
+    def close(self):
+        self._iterator.close()
+
     def _iter_lines(self):
         for line in self.fp:
             sline = line.lstrip()
@@ -188,5 +197,8 @@ class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inherita
                 # Relative paths retain their historical current-directory basis.
                 with io.open(filename, encoding=getattr(self.fp, 'encoding', None)) as stream:
                     child = MySQLConfigParserFilter(stream, self._active_paths)
-                    for included_line in child:
-                        yield included_line
+                    try:
+                        for included_line in child:
+                            yield included_line
+                    finally:
+                        child.close()
