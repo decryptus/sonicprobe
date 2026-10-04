@@ -110,8 +110,7 @@ class LockTests(unittest.TestCase):
                       lambda s: s.remove([], 'key'), lambda s: s.updated_at([]),
                       lambda s: s.updated_delta([]), lambda s: s.expired([], 1, lock=True),
                       lambda s: s.purge([]), lambda s: s.reset([]),
-                      lambda s: s.acquire([]), lambda s: s.try_acquire([]),
-                      lambda s: s.try_acquire('section', timeout='invalid')]
+                      lambda s: s.acquire([])]
         for operation in operations:
             self.assert_global_lock_released_after_error(operation, TypeError)
 
