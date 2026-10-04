@@ -158,6 +158,9 @@ License: GPL-3.0-or-later; original module copyrights remain in the source.
 
 See the [September 2026 code and architecture review](docs/REVIEW.md) (French).
 
+See the [XYS schema guide](docs/xys.md) for configuration validation, extensions,
+modifier semantics and compatibility notes for the proposed validator cleanup.
+
 
 ### Embedded PID-file locking and launcher compatibility
 
