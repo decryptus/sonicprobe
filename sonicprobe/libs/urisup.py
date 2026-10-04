@@ -11,13 +11,13 @@ Copyright (C) 2007-2010  Avencall
 
 import re
 
-from six import PY3, ensure_str, ensure_text, integer_types, text_type
+from six import PY3, ensure_str, ensure_text, integer_types, string_types, text_type
 from six.moves.urllib.parse import quote, unquote
 
 from sonicprobe.libs.network import valid_ipv4_dotdec, valid_ipv6_address
 
 # Right from RFC 3986 section B
-RFC3986_MATCHER = re.compile(r"^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?").match
+RFC3986_MATCHER = re.compile(r"^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?\Z", re.DOTALL).match
 
 # Near RFC 3986 definitions
 ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -106,7 +106,8 @@ def valid_scheme(potential_scheme):
     Check whether or not the content of potential_scheme is a valid
     URI scheme
     """
-    return (potential_scheme[0] in ALPHA) \
+    return (isinstance(potential_scheme, string_types) and bool(potential_scheme)
+            and potential_scheme[0] in ALPHA) \
            and __all_in(potential_scheme[1:], SCHEME_CHAR)
 
 class InvalidURIError(ValueError):
@@ -398,14 +399,14 @@ def uri_tree_normalize(uri_tree):
             add = False
             y   = list(x)
 
-            if bool(x[0]):
+            if bool(x[0]) or isinstance(x[0], integer_types):
                 add = True
                 if isinstance(x[0], integer_types):
                     y[0] = x[0]
                 else:
                     y[0] = ensure_str(x[0])
 
-            if bool(x[1]):
+            if bool(x[1]) or isinstance(x[1], integer_types):
                 add = True
                 if isinstance(x[1], integer_types):
                     y[1] = x[1]

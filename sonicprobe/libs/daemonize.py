@@ -264,6 +264,7 @@ def daemonize():
         LOG.exception("second fork() failed: %d (%s)", e.errno, e.strerror)
         sys.exit(1)
 
+    devnull_fd = None
     try:
         devnull_fd = os.open(os.devnull, os.O_RDWR)
 
@@ -280,6 +281,9 @@ def daemonize():
                 pass
     except Exception:  # pylint: disable-msg=W0703
         LOG.exception("error during file descriptor redirection")
+    finally:
+        if devnull_fd is not None and devnull_fd > 2:
+            os.close(devnull_fd)
 
 
 @contextmanager

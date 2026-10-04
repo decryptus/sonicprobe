@@ -87,7 +87,7 @@ def connect_by_uri(uri):
     return psycopg2.connect(**params)
 
 def escape(s):
-    return '.'.join(['"%s"' % comp for comp in s.split('.')])
+    return '.'.join(['"%s"' % comp.replace('"', '""') for comp in s.split('.')])
 
 def cast(fieldname, xtype):
     return "%s::%s" % (fieldname, xtype)

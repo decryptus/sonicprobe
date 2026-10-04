@@ -14,7 +14,7 @@ WARNING: this module is not DBAPI 2.0 compliant by itself
 import importlib
 import logging
 
-from six import ensure_text, iteritems
+from six import ensure_text, integer_types, iteritems
 
 from sonicprobe.libs import urisup
 
@@ -95,7 +95,7 @@ class cursor(object): # pylint: disable=useless-object-inheritance
             list.__init__(self, dbapi2_result)
             self.__col2idx_map = col2idx_map
         def __getitem__(self, k):
-            if isinstance(k, int):
+            if isinstance(k, integer_types + (slice,)):
                 return list.__getitem__(self, k)
             return list.__getitem__(self, self.__col2idx_map[k])
         def iteritems(self):
@@ -220,6 +220,8 @@ class cursor(object): # pylint: disable=useless-object-inheritance
         except Exception:
             if not self.__connection.auto_reconnect:
                 raise
+            if self.__connection.is_connected():
+                raise
             self.__connection.reconnect(None, self.__log_reconnect)
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
 
@@ -249,6 +251,8 @@ class cursor(object): # pylint: disable=useless-object-inheritance
         except Exception:
             if not self.__connection.auto_reconnect:
                 raise
+            if self.__connection.is_connected():
+                raise
             self.__connection.reconnect(None, self.__log_reconnect)
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
 
@@ -277,6 +281,8 @@ class cursor(object): # pylint: disable=useless-object-inheritance
             allrows = self.__dbapi2_cursor.fetchall()
         except Exception:
             if not self.__connection.auto_reconnect:
+                raise
+            if self.__connection.is_connected():
                 raise
             self.__connection.reconnect(None, self.__log_reconnect)
             self.__dbapi2_cursor = self.__connection._get_raw_cursor()
@@ -381,15 +387,9 @@ class connection(object): # pylint: disable=useless-object-inheritance
         """
         Reconnect to the database.
         """
-        uri = list(urisup.uri_help_split(self.sqluri))
-        if uri[1]:
-            authority   = list(uri[1])
-            if authority[1]:
-                authority[1] = None
-            uri[1]      = authority
-
         if log_reconnect:
-            LOG.warning('reconnecting to %r database (query: %r)', urisup.uri_help_unsplit(uri), query)
+            LOG.warning('reconnecting to database (backend: %s)',
+                        urisup.uri_help_split(self.sqluri)[0])
         self.__connect()
 
     def close(self):
@@ -499,7 +499,7 @@ def register_uri_backend(uri_scheme, create_method, module, c14n_uri_method, esc
         delta_api =  __compare_api_level(module.apilevel, any_apilevel)
         mod_paramstyle = module.paramstyle
         mod_threadsafety = module.threadsafety
-    except NameError:
+    except (AttributeError, ValueError, TypeError):
         raise NotImplementedError("This module does not support registration "
                                   "of non DBAPI services of at least apilevel 2.0")
     if delta_api < 0 or delta_api > 1:

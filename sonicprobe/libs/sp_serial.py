@@ -7,6 +7,7 @@ import logging
 import socket
 
 from time import sleep
+from six import ensure_binary
 
 import serial
 from xmodem import XMODEM
@@ -28,7 +29,7 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
                  dsrdtr             = False,
                  eol                = '\r'):
 
-        if port.find(":") == -1:
+        if port is None or ":" not in port:
             LOG.debug("Using serial port %r", port)
             self.mode = 'Serial'
             self.serial = serial.Serial(
@@ -47,9 +48,12 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
             self.mode = 'TCP'
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             host, tcpport = port.split(':')
-            self.socket.connect((socket.gethostbyname(host), int(tcpport)))
-            self.socket.settimeout(1) #1s
-            self.serial = self.socket.makefile()
+            try:
+                self.socket.settimeout(1 if timeout is None else timeout)
+                self.socket.connect((socket.gethostbyname(host), int(tcpport)))
+            except BaseException:
+                self.socket.close()
+                raise
 
         self.eol            = eol
         self.progressbar    = None
@@ -64,29 +68,41 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
     def readline(self):
         if self.mode == 'Serial':
             return self.serial.readline()
-        line = c = ""
+        parts = []
         try:
-            while c != "\n":
-                c = self.socket.recv(1)
-                line += c
+            while True:
+                char = self.socket.recv(1)
+                if not char:
+                    break
+                parts.append(char)
+                if char == b'\n':
+                    break
         except socket.timeout:
             pass
-        return line
+        return b''.join(parts)
 
+    def close(self):
+        if self.mode == 'Serial':
+            self.serial.close()
+        else:
+            self.socket.close()
 
     def write(self, data):
-        r = self.serial.write(data)
+        data = ensure_binary(data)
+        if self.mode == 'TCP':
+            self.socket.sendall(data)
+            return len(data)
+        result = self.serial.write(data)
         self.serial.flush()
-        return r
+        return result
 
     def writeline(self, data):
-        LOG.debug("TX: %r", data)
-        return self.write(data + self.eol)
+        return self.write(ensure_binary(data) + ensure_binary(self.eol))
 
     def sendBreak(self, duration = 1):
         if self.mode == 'Serial':
             return self.serial.sendBreak(duration)
-        return self.write("\xFF\xF3") # Break IAC as defined in Telnet RFC
+        return self.write(b"\xFF\xF3") # Telnet IAC BREAK
 
     def setTmpTimeout(self, timeout):
         if self.mode == 'Serial':
@@ -100,63 +116,55 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
 
     def restoreTimeout(self):
         if self.mode == 'Serial':
-            if self.timeout is not None:
-                self.serial.timeout = self.timeout
+            self.serial.timeout = self.timeout
         else:
-            if self.timeout is not None:
-                self.socket.settimeout(self.timeout)
+            self.socket.settimeout(self.timeout)
 
     def readlinesuntil(self, data = None, timeout = None):
+        if not data:
+            raise ValueError('a non-empty line marker is required')
+        marker = ensure_binary(data)
         self.setTmpTimeout(timeout)
-
-        def serial_port_reader():
+        try:
+            parts = []
             while True:
-                x   = self.readline()
-                if x == '':
-                    continue
-                LOG.debug("RX: %r", x)
-
-                x   = x.strip()
-
-                if x.find(data) > -1:
-                    break
-                yield x
-
-        r = ''.join(serial_port_reader())
-
-        self.restoreTimeout()
-
-        return r
+                line = self.readline()
+                if not line:
+                    raise EOFError('Serial/TCP stream ended or timed out before marker')
+                line = line.strip()
+                if marker in line:
+                    return b''.join(parts)
+                parts.append(line)
+        finally:
+            self.restoreTimeout()
 
     def readuntil(self, data = None, timeout = None):
-        if not data:
-            size    = 1
-        else:
-            size    = len(data)
-
+        marker = ensure_binary(data) if data else None
         self.setTmpTimeout(timeout)
-
-        def serial_port_reader():
+        try:
+            parts = []
+            tail = b''
             while True:
-                tmp = self.read(size)
-                LOG.debug("RX: %r", tmp)
-                if not tmp or (data and data == tmp):
-                    break
-                yield tmp
-
-        r = ''.join(serial_port_reader())
-
-        self.restoreTimeout()
-
-        return r
+                char = self.read(1)
+                if not char:
+                    if marker:
+                        raise EOFError('Serial/TCP stream ended or timed out before marker')
+                    return b''.join(parts)
+                parts.append(char)
+                if marker:
+                    tail = (tail + char)[-len(marker):]
+                    if tail == marker:
+                        return b''.join(parts)[:-len(marker)]
+        finally:
+            self.restoreTimeout()
 
     def getc(self, size, timeout=1): # pylint: disable=unused-argument
         r = self.read(size)
-        LOG.debug("RXc: %d", r)
+        LOG.debug("RXc bytes: %d", len(r) if r else 0)
         return r
 
     def putc(self, data, timeout=1): # pylint: disable=unused-argument
-        LOG.debug("TXc: %d", data)
+        LOG.debug("TXc bytes: %d", len(data))
         r = self.write(data)
         sleep(0.001)
 
@@ -167,7 +175,7 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
 
         return r
 
-    def xmodem(self, progressbar=None, mode = 'xmodem', pad = '\x1a'):
+    def xmodem(self, progressbar=None, mode = 'xmodem', pad = b'\x1a'):
         self.progressbar = progressbar
         self.progresslen = 0
 

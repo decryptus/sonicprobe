@@ -25,7 +25,7 @@ __typemap = {
     'db': str,
     'port': int,
     'unix_socket': str,
-    'compress': bool,
+    'compress': (lambda x: bool(int(x))),
     'connect_timeout': int,
     'read_default_file': str,
     'read_default_group': str,
@@ -121,7 +121,8 @@ def connect_by_uri(uri):
     # be held by the connection instance, so when the latter is garbage
     # collected, the copied conversion dictionary is freed, and eventually
     # the now orphan tuples and generated functions are too.
-    params['conv'] = CST_CONVERSIONS.copy()
+    params['conv'] = dict((key, value[:] if isinstance(value, list) else value)
+                          for key, value in iteritems(CST_CONVERSIONS))
 
     cparams = {}
 
@@ -132,13 +133,23 @@ def connect_by_uri(uri):
 
     conn =  MySQLdb.connect(**params)
 
-    for key, value in iteritems(cparams):
-        if value is None:
-            continue
-        elif isinstance(value, string_types) and value:
-            conn.query("SET @@session.%s = '%s'" % (key, MySQLdb.escape_string(value))) # pylint: disable=no-member
-        elif isinstance(value, (bool, integer_types)):
-            conn.query("SET @@session.%s = %d" % (key, value))
+    cursor = None
+    try:
+        if cparams:
+            cursor = conn.cursor()
+            for key, value in iteritems(cparams):
+                if value is not None:
+                    # Keys come only from __conn_typemap; values use DBAPI binding.
+                    cursor.execute("SET @@session.%s = %%s" % key, (value,))
+            cursor.close()
+            cursor = None
+    except BaseException:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            conn.close()
+        raise
 
     return conn
 

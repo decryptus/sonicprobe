@@ -101,3 +101,22 @@ class ServerTests(unittest.TestCase):
                 thread.join(2)
                 server.server_close()
             self.assertFalse(thread.is_alive())
+
+    def test_verification_failure_closes_accepted_request(self):
+        try:
+            from unittest import mock
+        except ImportError:
+            import mock
+        for server_class in (KillableThreadingTCPServer, KillableDynThreadingTCPServer,
+                             KillableThreadingUDPServer, KillableDynThreadingUDPServer):
+            server = server_class({'max_workers': 1}, ('127.0.0.1', 0), socketserver.BaseRequestHandler)
+            request = mock.Mock()
+            try:
+                with mock.patch.object(server, 'get_request', return_value=(request, ('127.0.0.1', 1))), \
+                     mock.patch.object(server, 'verify_request', side_effect=ValueError('failed')), \
+                     mock.patch.object(server, 'shutdown_request') as close:
+                    with self.assertRaises(ValueError):
+                        server.handle_request()
+                    close.assert_called_once_with(request)
+            finally:
+                server.kill(); server.server_close()

@@ -4,36 +4,38 @@
 """sonicprobe.libs.xbstream"""
 
 import copy
-import errno
 import gc
 import logging
 import struct
 import sys
 
+from six import integer_types
+
 LOG = logging.getLogger('xbstream')
 
-XB_STREAM_CHUNK_MAGIC     = 'XBSTCK01'
+XB_STREAM_CHUNK_MAGIC     = b'XBSTCK01'
 XB_STREAM_CHUNK_MAGIC_LEN = len(XB_STREAM_CHUNK_MAGIC)
 
 # Magic + flags + type + path len
 CHUNK_HEADER_CONSTANT_LEN = XB_STREAM_CHUNK_MAGIC_LEN + 1 + 1 + 4
 PATH_LENGTH_OFFSET        = XB_STREAM_CHUNK_MAGIC_LEN + 1 + 1
 PATH_LENGTH_OFFSET_END    = PATH_LENGTH_OFFSET + 4
-XB_CHUNK_TYPE_EOF         = 'E'
+XB_CHUNK_TYPE_EOF         = b'E'
+XB_CHUNK_TYPE_PAYLOAD     = b'P'
 CHUNK_TYPE_OFFSET         = XB_STREAM_CHUNK_MAGIC_LEN + 1
 XB_STREAM_MIN_CHUNK_SIZE  = (10 * 1024 * 1024)
 
 
 class XBStreamDefaultCallbacks(object): # pylint: disable=useless-object-inheritance,too-few-public-methods
-    def __init__(self, read = sys.stdin.read, write = sys.stdout.write, tx = None):
-        self.read  = read
-        self.write = write
+    def __init__(self, read = None, write = None, tx = None):
+        self.read  = read or getattr(sys.stdin, "buffer", sys.stdin).read
+        self.write = write or getattr(sys.stdout, "buffer", sys.stdout).write
         self.tx    = tx
 
 
 class XBStreamObject(object): # pylint: disable=useless-object-inheritance
     def __init__(self):
-        self.buffer         = ""
+        self.buffer         = b""
         self.buffer_size    = 0
         self.filled_size    = 0
         self.tx_size        = 0
@@ -50,7 +52,7 @@ class XBStreamObject(object): # pylint: disable=useless-object-inheritance
         self.tx_started     = False
 
     def clean(self):
-        self.buffer  = ""
+        self.buffer  = b""
         self.payload = None
 
 
@@ -84,6 +86,8 @@ class XBStreamRead(object): # pylint: disable=useless-object-inheritance
                 self.buffer_updated()
             else:
                 self.EOF = True
+                if self.xb_obj.filled_size:
+                    raise EOFError("Truncated xbstream chunk")
 
         if self.EOF:
             gc.collect()
@@ -97,53 +101,34 @@ class XBStreamRead(object): # pylint: disable=useless-object-inheritance
     def tx_start(self):
         self.xb_obj.tx_started = True
 
-        if self.xb_obj.filled_size == self.xb_obj.tx_size \
-           and self.xb_obj.tx_size < self.xb_obj.chunk_size \
-           and not self.EOF:
-            x = None
-            while True:
-                try:
-                    x = self.callbacks.read(self.xb_obj.chunk_size - self.xb_obj.filled_size)
-                    break
-                except IOError as e:
-                    if e.errno == errno.EAGAIN:
-                        continue
-
-            if x:
-                self.xb_obj.buffer      += x
-                self.xb_obj.filled_size += len(x)
-                self.buffer_updated()
-            else:
+        # Read missing bytes without recursive retries or swallowing I/O errors.
+        while self.xb_obj.filled_size < self.xb_obj.chunk_size:
+            chunk = self.callbacks.read(self.xb_obj.chunk_size - self.xb_obj.filled_size)
+            if not chunk:
                 self.EOF = True
-
-        real_size = self.xb_obj.filled_size - self.xb_obj.tx_size
+                raise EOFError("Truncated xbstream chunk")
+            self.xb_obj.buffer += chunk
+            self.xb_obj.filled_size += len(chunk)
+            self.buffer_updated()
 
         if self.set_payload:
-            xlen = 4 + 16 + self.xb_obj.chunk_path_len + CHUNK_HEADER_CONSTANT_LEN
-            self.xb_obj.payload = self.xb_obj.buffer[xlen:xlen + self.xb_obj.payload_size]
+            offset = 4 + 16 + self.xb_obj.chunk_path_len + CHUNK_HEADER_CONSTANT_LEN
+            self.xb_obj.payload = self.xb_obj.buffer[offset:offset + self.xb_obj.payload_size]
         else:
             self.xb_obj.payload = None
 
-        if getattr(self.callbacks, 'tx'):
-            tx_size = self.callbacks.tx(copy.copy(self.xb_obj))
-        else:
-            tx_size = self.callbacks.write(self.xb_obj.buffer)
-
-        if tx_size is not None:
-            real_size = min([tx_size, self.xb_obj.filled_size - self.xb_obj.tx_size])
-
-        self.xb_obj.tx_size += real_size
-
-        assert(self.xb_obj.filled_size <= self.xb_obj.chunk_size)
-        assert(self.xb_obj.tx_size <= self.xb_obj.filled_size)
-
-        if self.xb_obj.tx_size == self.xb_obj.chunk_size:
-            self.xb_obj.chunk_tx = True
-        else:
-            self.tx_start()
-
-        if self.EOF:
-            gc.collect()
+        while self.xb_obj.tx_size < self.xb_obj.chunk_size:
+            remaining = self.xb_obj.chunk_size - self.xb_obj.tx_size
+            if getattr(self.callbacks, 'tx', None):
+                written = self.callbacks.tx(copy.copy(self.xb_obj))
+            else:
+                written = self.callbacks.write(self.xb_obj.buffer[self.xb_obj.tx_size:])
+            if written is None:
+                written = remaining
+            if not isinstance(written, integer_types) or written <= 0 or written > remaining:
+                raise IOError("xbstream write callback made invalid progress")
+            self.xb_obj.tx_size += written
+        self.xb_obj.chunk_tx = True
 
     def buffer_updated(self):
         ready_for_tx = False
@@ -152,8 +137,10 @@ class XBStreamRead(object): # pylint: disable=useless-object-inheritance
             if self.xb_obj.buffer[0:XB_STREAM_CHUNK_MAGIC_LEN] != XB_STREAM_CHUNK_MAGIC:
                 raise ValueError("Error: magic excepted")
             self.xb_obj.magic_verified = True
-            self.xb_obj.chunk_path_len = struct.unpack('I', self.xb_obj.buffer[PATH_LENGTH_OFFSET:PATH_LENGTH_OFFSET_END])[0]
-            self.xb_obj.chunk_type     = self.xb_obj.buffer[CHUNK_TYPE_OFFSET]
+            self.xb_obj.chunk_path_len = struct.unpack('<I', self.xb_obj.buffer[PATH_LENGTH_OFFSET:PATH_LENGTH_OFFSET_END])[0]
+            self.xb_obj.chunk_type     = self.xb_obj.buffer[CHUNK_TYPE_OFFSET:CHUNK_TYPE_OFFSET + 1]
+            if self.xb_obj.chunk_type not in (XB_CHUNK_TYPE_EOF, XB_CHUNK_TYPE_PAYLOAD):
+                raise ValueError("Unsupported xbstream chunk type")
             self.xb_obj.chunk_size     = CHUNK_HEADER_CONSTANT_LEN + self.xb_obj.chunk_path_len
             LOG.debug("buffer updated step 1: "
                       "chunk_path_len: %r, "
@@ -174,7 +161,7 @@ class XBStreamRead(object): # pylint: disable=useless-object-inheritance
            and self.xb_obj.filled_size >= (CHUNK_HEADER_CONSTANT_LEN + self.xb_obj.chunk_path_len + 16):
             payload_len_offset       = CHUNK_HEADER_CONSTANT_LEN + self.xb_obj.chunk_path_len
             payload_len_offset_end   = CHUNK_HEADER_CONSTANT_LEN + self.xb_obj.chunk_path_len + 8
-            self.xb_obj.payload_size = struct.unpack('L', self.xb_obj.buffer[payload_len_offset:payload_len_offset_end])[0]
+            self.xb_obj.payload_size = struct.unpack('<Q', self.xb_obj.buffer[payload_len_offset:payload_len_offset_end])[0]
             self.xb_obj.chunk_size   = self.xb_obj.payload_size + 4 + 16 + self.xb_obj.chunk_path_len + CHUNK_HEADER_CONSTANT_LEN
             self.xb_obj.name         = self.xb_obj.buffer[CHUNK_HEADER_CONSTANT_LEN:CHUNK_HEADER_CONSTANT_LEN + self.xb_obj.chunk_path_len]
             LOG.debug("buffer updated step 2: "

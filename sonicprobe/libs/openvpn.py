@@ -6,6 +6,8 @@
 import logging
 import socket
 
+from six import ensure_binary, ensure_text
+
 
 LOG = logging.getLogger("sonicprobe.helpers")
 
@@ -28,94 +30,77 @@ class OpenVPNMgmt(object): # pylint: disable=useless-object-inheritance
 
         self._sock      = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        if self._timeout is not None:
-            self._sock.settimeout(self._timeout)
-
-        self._sock.connect((self._host, self._port))
-        self.readline()
+        try:
+            if self._timeout is not None:
+                self._sock.settimeout(self._timeout)
+            self._sock.connect((self._host, self._port))
+            self.readline()
+        except BaseException:
+            self.close()
+            raise
         self._connected = True
-
         return self
 
     def close(self):
-        if not self._connected:
-            return self
-
         self._connected = False
-        self._sock.close()
-
+        if self._sock is not None:
+            self._sock.close()
+            self._sock = None
         return self
 
     def writeline(self, data):
-        LOG.debug("send: %r", data)
-        return self._sock.send(data + self.eol)
+        payload = ensure_binary(data) + ensure_binary(self.eol)
+        self._sock.sendall(payload)
+        return len(payload)
 
     def readline(self):
-        r = []
-        s = 0
-
+        parts = []
         while True:
-            c = self._sock.recv(1)
+            char = self._sock.recv(1)
+            if not char:
+                raise EOFError('OpenVPN management connection closed before end of line')
+            if char == b'\n':
+                return ensure_text(b''.join(parts).rstrip(b'\r'))
+            parts.append(char)
 
-            if c == '\r':
-                s = 1
-            elif s == 1:
-                s = 0
-                if c == '\n':
-                    break
-                r.append(c)
-            else:
-                r.append(c)
-
-        return ''.join(r)
-
-    def readlinesuntil(self, data = None, timeout = None):
-        timeout_prev    = self._timeout
-
-        if timeout is not None:
-            self._sock.settimeout(timeout)
-
-        def reader():
-            while True:
-                x   = self._sock.recv(4096)
-                if x == '':
-                    continue
-
-                x   = x.strip()
-
-                if x.find(data) > -1:
-                    break
-                yield x
-
-        r = ''.join(reader())
-
-        self._sock.settimeout(timeout_prev)
-
-        return r
-
-    def readuntil(self, data = None, timeout = None):
+    def readlinesuntil(self, data=None, timeout=None):
         if not data:
-            size    = 1
-        else:
-            size    = len(data)
-
-        timeout_prev    = self._timeout
-
-        if timeout is not None:
-            self._sock.settimeout(timeout)
-
-        def reader():
+            raise ValueError('a non-empty line marker is required')
+        marker = ensure_text(data)
+        previous = self._sock.gettimeout()
+        try:
+            if timeout is not None:
+                self._sock.settimeout(timeout)
+            parts = []
             while True:
-                tmp = self._sock.recv(size)
-                if not tmp or (data and data == tmp):
-                    break
-                yield tmp
+                line = self.readline().strip()
+                if marker in line:
+                    return ''.join(parts)
+                parts.append(line)
+        finally:
+            self._sock.settimeout(previous)
 
-        r = ''.join(reader())
-
-        self._sock.settimeout(timeout_prev)
-
-        return r
+    def readuntil(self, data=None, timeout=None):
+        marker = ensure_binary(data) if data else None
+        previous = self._sock.gettimeout()
+        try:
+            if timeout is not None:
+                self._sock.settimeout(timeout)
+            parts = []
+            tail = b''
+            while True:
+                char = self._sock.recv(1)
+                if not char:
+                    if marker:
+                        raise EOFError('OpenVPN management connection closed before marker')
+                    return ensure_text(b''.join(parts))
+                parts.append(char)
+                if marker:
+                    tail = (tail + char)[-len(marker):]
+                    if tail == marker:
+                        return ensure_text(b''.join(parts)[:-len(marker)])
+        finally:
+            self._sock.settimeout(previous)
 
     def kill(self, client):
         LOG.debug("kill: %r", client)
