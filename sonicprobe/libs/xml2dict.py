@@ -67,7 +67,7 @@ class XML2Dict(object): # pylint: disable=useless-object-inheritance
         self._parser.EndElementHandler      = self.endElement
         self._parser.CharacterDataHandler   = self.characters
 
-        self._parser.Parse(data)
+        self._parser.Parse(data, True)
         return self.root
 
 

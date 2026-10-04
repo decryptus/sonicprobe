@@ -37,23 +37,23 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
         self.notbefore_days = 0
         self.notafter_days  = 365
 
-        if bits:
+        if bits is not None:
             self.set_bits(bits)
 
-        if crypto_type:
+        if crypto_type is not None:
             self.set_crypto_type(crypto_type)
 
-        if digest_type:
+        if digest_type is not None:
             self.set_digest_type(digest_type)
 
-        if notbefore_days:
+        if notbefore_days is not None:
             self.set_notbefore_days(notbefore_days)
 
-        if notafter_days:
+        if notafter_days is not None:
             self.set_notafter_days(notafter_days)
 
     def set_bits(self, bits):
-        if not isinstance(bits, int):
+        if isinstance(bits, bool) or not isinstance(bits, int) or bits <= 0:
             raise ValueError("Invalid bits: %r" % bits)
         self.bits = bits
         return self
@@ -100,9 +100,8 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
                 open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'wb')
-            f.write(dpkey)
-            f.close()
+            with open(export_file, 'wb') as stream:
+                stream.write(dpkey)
         return pkey
 
     def make_certreq(self, pkey, attributes, export_file=False, **kwargs):
@@ -150,9 +149,8 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
                 open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'wb')
-            f.write(dcsr)
-            f.close()
+            with open(export_file, 'wb') as stream:
+                stream.write(dcsr)
         return csr
 
     def make_certificate(self, csr, ca, ca_pkey, serial, export_file=False):
@@ -175,7 +173,6 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
                 open(export_file, 'wb').close()
             os.chmod(export_file, 0o600)
 
-            f       = open(export_file, 'wb')
-            f.write(dcrt)
-            f.close()
+            with open(export_file, 'wb') as stream:
+                stream.write(dcrt)
         return crt

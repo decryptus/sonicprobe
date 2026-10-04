@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """sonicprobe.libs.mysql_config_parser"""
 
+import io
 import os
 import re
 import subprocess
@@ -13,12 +14,7 @@ from six.moves.configparser import ConfigParser, Error, NoSectionError, Duplicat
         InterpolationSyntaxError, InterpolationDepthError, ParsingError, \
         MissingSectionHeaderError, _default_dict
 
-try:
-    from six.moves import cStringIO as StringIO
-except ImportError:
-    from six import StringIO
-
-from six import PY2, string_types
+from six import PY2, StringIO, ensure_text, string_types
 
 import semantic_version
 
@@ -57,7 +53,7 @@ class MySQLConfigVersion(object):
         ver = semantic_version.Version(version, partial = True)
         for x in ('major', 'minor', 'patch', 'prerelease', 'build'):
             v = getattr(ver, x, None)
-            if not v:
+            if v is None or v == ():
                 break
             if isinstance(v, tuple):
                 v = '.'.join(v)
@@ -67,12 +63,17 @@ class MySQLConfigVersion(object):
     def _get_config(self, section, progpath, parse_vers, check_version = True):
         my_vers = False
         if check_version:
-            my_vers = parse_vers(subprocess.check_output((progpath, '--version')).strip())
+            my_vers = parse_vers(ensure_text(subprocess.check_output((progpath, '--version')),
+                                             encoding='ascii', errors='replace').strip())
 
-        myconf = StringIO("%s\n%s" % (self._read_file(self._default_file),
-                                      self._read_file(self._custom_file)))
-        self._myconf.readfp(myconf)
-        myconf.close()
+        # Each request reflects current files; removed options must not survive.
+        self._myconf = MySQLConfigParser()
+        for filename in (self._default_file, self._custom_file):
+            myconf = StringIO(ensure_text(self._read_file(filename)))
+            try:
+                self._myconf.read_file(myconf)
+            finally:
+                myconf.close()
 
         if my_vers:
             self._check_conf_versions(self._myconf,
@@ -95,9 +96,9 @@ class MySQLConfigVersion(object):
 
 class MySQLConfigParser(ConfigParser):
     if os.name == 'nt':
-        RE_INCLUDE_FILE = re.compile(r'^[^\.]+(?:\.ini|\.cnf)$').match
+        RE_INCLUDE_FILE = re.compile(r'^[^\.]+(?:\.ini|\.cnf)\Z').match
     else:
-        RE_INCLUDE_FILE = re.compile(r'^[^\.]+\.cnf$').match
+        RE_INCLUDE_FILE = re.compile(r'^[^\.]+\.cnf\Z').match
 
     def __init__(self, defaults = None, dict_type = _default_dict, allow_no_value=True):
         ConfigParser.__init__(self, defaults, dict_type, allow_no_value)
@@ -123,94 +124,81 @@ class MySQLConfigParser(ConfigParser):
 
         file_ok = []
         for filename in filenames:
-            if self.valid_filename(os.path.basename(filename)):
-                file_ok.append(filename)
-
-        if PY2:
-            return ConfigParser.read(self, file_ok)
-
-        return ConfigParser.read(self, file_ok, encoding) # pylint: disable=too-many-function-args
+            if not self.valid_filename(os.path.basename(filename)):
+                continue
+            try:
+                stream = io.open(filename, encoding=encoding)
+            except IOError:
+                continue
+            with stream:
+                self.read_file(stream, filename)
+            file_ok.append(filename)
+        return file_ok
 
     def readfp(self, fp, filename=None):
-        return ConfigParser.readfp(self, MySQLConfigParserFilter(fp), filename)
+        return self.read_file(fp, filename)
 
     def read_file(self, f, source=None):
-        if PY2:
-            return ConfigParser.readfp(self, MySQLConfigParserFilter(f), source)
-
-        return ConfigParser.read_file(self, MySQLConfigParserFilter(f), source) # pylint: disable=no-member
+        filtered = MySQLConfigParserFilter(f)
+        try:
+            if PY2:
+                return ConfigParser.readfp(self, filtered, source)
+            return ConfigParser.read_file(self, filtered, source) # pylint: disable=no-member
+        finally:
+            filtered.close()
 
 
 class MySQLConfigParserFilter(object): # pylint: disable=useless-object-inheritance
     RE_HEADER_OPT  = re.compile(r'^\s*\[[^\]]+\]\s*').match
     RE_INCLUDE_OPT = re.compile(r'^\s*!\s*(?:(include|includedir)\s+(.+))$').match
 
-    def __init__(self, fp):
-        self.fp     = fp
-        self._lines = []
+    MAX_INCLUDE_DEPTH = 64
+
+    def __init__(self, fp, active_paths=()):
+        self.fp = fp
+        name = getattr(fp, 'name', None)
+        path = os.path.realpath(name) if isinstance(name, string_types) else None
+        if path and path in active_paths:
+            raise ParsingError("Recursive configuration include: %r" % path)
+        if len(active_paths) >= self.MAX_INCLUDE_DEPTH:
+            raise ParsingError("Configuration include depth exceeded")
+        self._active_paths = active_paths + ((path,) if path else ())
+        self._iterator = self._iter_lines()
 
     def __iter__(self):
-        r = []
-        while True:
-            x = self.readline()
-            r.append(x)
-            if not x:
-                break
-
-        return iter(r)
+        return self._iterator
 
     def readline(self):
-        if self._lines:
-            line = self._lines.pop(0)
-        else:
-            line = self.fp.readline()
+        return next(self._iterator, '')
 
-        sline = line.lstrip()
+    def close(self):
+        self._iterator.close()
 
-        if not sline or sline[0] != '!':
-            if self.RE_HEADER_OPT(line):
-                return line
-
-            if sline.startswith('#'):
-                return line
-
-            if sline.startswith(';'):
-                return line
-
-            return line
-
-        mline = self.RE_INCLUDE_OPT(sline)
-
-        if not mline:
-            raise ParsingError("Unable to parse the line: %r." % line)
-            #return "#%s" % line
-
-        opt = mline.group(2).strip()
-
-        if not opt:
-            raise ParsingError("Empty path for include or includir option (%r)." % line)
-            #return "#%s" % line
-
-        if mline.group(1) == 'include':
-            if not MySQLConfigParser.RE_INCLUDE_FILE(opt):
-                raise ParsingError("Wrong filename for include option (%r)." % line)
-                #return "#%s" % line
-
-            self._add_lines(opt)
-        else:
-            dirname = os.path.dirname(opt)
-            for xfile in os.listdir(opt):
-                if MySQLConfigParser.RE_INCLUDE_FILE(xfile):
-                    self._add_lines(os.path.join(dirname, xfile))
-
-        return self.readline()
-
-    def _add_lines(self, xfile):
-        if not os.path.isfile(xfile) or not os.access(xfile, os.R_OK):
-            return
-
-        xfilter = MySQLConfigParserFilter(open(xfile))
-        lines = xfilter.fp.readlines()
-        xfilter.fp.close()
-        lines.extend(self._lines)
-        self._lines = lines
+    def _iter_lines(self):
+        for line in self.fp:
+            sline = line.lstrip()
+            if not sline.startswith('!'):
+                yield line
+                continue
+            match = self.RE_INCLUDE_OPT(sline)
+            if not match or not match.group(2).strip():
+                raise ParsingError("Invalid configuration include directive")
+            path = match.group(2).strip()
+            if match.group(1) == 'include':
+                if not MySQLConfigParser.valid_filename(os.path.basename(path)):
+                    raise ParsingError("Wrong filename for include option")
+                paths = [path]
+            else:
+                paths = [os.path.join(path, name) for name in sorted(os.listdir(path))
+                         if MySQLConfigParser.valid_filename(name)]
+            for filename in paths:
+                if not os.path.isfile(filename) or not os.access(filename, os.R_OK):
+                    continue
+                # Relative paths retain their historical current-directory basis.
+                with io.open(filename, encoding=getattr(self.fp, 'encoding', None)) as stream:
+                    child = MySQLConfigParserFilter(stream, self._active_paths)
+                    try:
+                        for included_line in child:
+                            yield included_line
+                    finally:
+                        child.close()

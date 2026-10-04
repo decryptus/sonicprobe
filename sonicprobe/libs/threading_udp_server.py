@@ -82,7 +82,12 @@ class KillableDynThreadingUDPServer(socketserver.ThreadingUDPServer):
         except socketserver.socket.error:
             return
 
-        if self.verify_request(request, client_address):
+        try:
+            verified = self.verify_request(request, client_address)
+        except BaseException:
+            self.shutdown_request(request)
+            raise
+        if verified:
             with self._request_lock:
                 if self._killed:
                     self.shutdown_request(request)
@@ -199,7 +204,12 @@ class KillableThreadingUDPServer(socketserver.ThreadingUDPServer):
         except socketserver.socket.error:
             return
 
-        if self.verify_request(request, client_address):
+        try:
+            verified = self.verify_request(request, client_address)
+        except BaseException:
+            self.shutdown_request(request)
+            raise
+        if verified:
             while True:
                 with self._request_lock:
                     if self._killed:
