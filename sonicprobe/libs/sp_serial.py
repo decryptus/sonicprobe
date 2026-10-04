@@ -46,11 +46,14 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
         else:
             LOG.debug("Using tcp port %r", port)
             self.mode = 'TCP'
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             host, tcpport = port.split(':')
+            tcpport = int(tcpport)
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 self.socket.settimeout(1 if timeout is None else timeout)
-                self.socket.connect((socket.gethostbyname(host), int(tcpport)))
+                self.socket.connect((socket.gethostbyname(host), tcpport))
+                # Retain the historical transport handle, now in binary mode.
+                self.serial = self.socket.makefile('rwb', 0)
             except BaseException:
                 self.socket.close()
                 raise
@@ -85,7 +88,12 @@ class SPSerial(object): # pylint: disable=useless-object-inheritance
         if self.mode == 'Serial':
             self.serial.close()
         else:
-            self.socket.close()
+            try:
+                stream = getattr(self, 'serial', None)
+                if stream is not None:
+                    stream.close()
+            finally:
+                self.socket.close()
 
     def write(self, data):
         data = ensure_binary(data)

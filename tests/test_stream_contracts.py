@@ -153,6 +153,23 @@ class SerialContracts(unittest.TestCase):
                 self.module.SPSerial('localhost:1234')
         self.assertTrue(sock.closed)
 
+    def test_tcp_constructor_keeps_binary_file_handle_and_closes_both(self):
+        sock = mock.Mock()
+        with mock.patch.object(self.module.socket, 'socket', return_value=sock), \
+             mock.patch.object(self.module.socket, 'gethostbyname', return_value='127.0.0.1'):
+            client = self.module.SPSerial('localhost:1234', timeout=2)
+        sock.makefile.assert_called_once_with('rwb', 0)
+        self.assertIs(client.serial, sock.makefile.return_value)
+        client.close()
+        client.serial.close.assert_called_once_with()
+        sock.close.assert_called_once_with()
+
+    def test_invalid_tcp_port_does_not_allocate_a_socket(self):
+        with mock.patch.object(self.module.socket, 'socket') as create:
+            with self.assertRaises(ValueError):
+                self.module.SPSerial('localhost:invalid')
+        create.assert_not_called()
+
 
 class XBStreamContracts(unittest.TestCase):
     @staticmethod
