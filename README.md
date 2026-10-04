@@ -197,3 +197,8 @@ directly. Generic utilities do not import the shim; tests exercise helpers,
 schemas, locks, worker execution/shutdown and PID lifecycle with HTTPdis, DWho and
 CLI imports blocked. The declared HTTPdis installation dependency is retained in
 this release to avoid breaking consumers that rely on the historical shim.
+
+The [library review inventory](docs/library-review-status.md) records the scope
+and remaining gaps of per-module reviews. See the
+[network helper review](docs/network-review.md) for fixes, compatibility behavior
+and verification limits.
