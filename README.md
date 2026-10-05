@@ -144,32 +144,6 @@ It only governs XYS's own diagnostics: application callbacks and custom validato
 remain responsible for what they log. Regression tests capture formatted records,
 reject synthetic input markers and check that valid documents still pass.
 
-## Tests and release
-
-```sh
-python -m pip install -e . mock
-python .github/scripts/check-test-collection.py --runner unittest tests
-python -m unittest discover -s tests -v
-python -m pip install build twine
-python -m build
-python -m twine check --strict dist/*
-```
-
-CI tests core workers, helpers, SQL and local server behavior on the configured
-interpreter matrix. PyPI publishing is gated by these tests and artifact validation.
-Update `VERSION`, `RELEASE` and `setup.yml` together. Merging to master creates a
-new `vX.Y.Z` tag and publishes via Trusted Publishing (`decryptus/sonicprobe`,
-workflow `pypi.yml`, environment `pypi`). Existing tags are never overwritten. A GitHub release with versioned notes and
-distributions is created after successful PyPI publication.
-
-License: GPL-3.0-or-later; original module copyrights remain in the source.
-
-See the [September 2026 code and architecture review](docs/REVIEW.md) (French).
-
-See the [XYS schema guide](docs/xys.md) for configuration validation, extensions,
-modifier semantics and compatibility notes for the proposed validator cleanup.
-
-
 ### Embedded PID-file locking and launcher compatibility
 
 `sonicprobe.libs.daemonize.lock_pidfile(path)` claims a PID file and returns the
@@ -210,3 +184,8 @@ The [library review inventory](docs/library-review-status.md) records the scope
 and remaining gaps of per-module reviews. See the
 [network helper review](docs/network-review.md) for fixes, compatibility behavior
 and verification limits.
+
+## Documentation
+
+- **Users:** installation, configuration, operation and API usage in this README and the user guide.
+- **Contributors:** [architecture, tests and development](https://github.com/decryptus/sonicprobe/blob/master/CONTRIBUTING.md).
