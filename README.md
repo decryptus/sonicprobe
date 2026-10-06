@@ -189,3 +189,6 @@ and verification limits.
 
 - **Users:** installation, configuration, operation and API usage in this README and the user guide.
 - **Contributors:** [architecture, tests and development](https://github.com/decryptus/sonicprobe/blob/master/CONTRIBUTING.md).
+
+For the updated CSR return type and dependency requirements, see the
+[GenCert migration guide](docs/gencert-migration.md).

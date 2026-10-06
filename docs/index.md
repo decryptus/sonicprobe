@@ -9,6 +9,7 @@ Installation, configuration, public APIs and troubleshooting.
    :maxdepth: 1
    :caption: User guide and reference
 
+   gencert-migration
    release-0.3.57
    xys
 
