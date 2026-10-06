@@ -24,3 +24,5 @@ Changing the project? Use the separate :doc:`contributors` guide.
    :caption: For contributors
 
    contributors
+
+[Release 0.3.58](release-0.3.58.md)
