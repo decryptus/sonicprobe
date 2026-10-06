@@ -6,10 +6,10 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
-## Current release: 0.3.57
+## Current release: 0.3.58
 
 XYS, network validation, utility I/O and Keystore lifecycle corrections.
-Read the [release notes and compatibility changes](docs/release-0.3.57.md)
+Read the [release notes and compatibility changes](docs/release-0.3.58.md)
 before upgrading, especially if you combine global and section locks.
 
 ## What is here?
@@ -189,3 +189,6 @@ and verification limits.
 
 - **Users:** installation, configuration, operation and API usage in this README and the user guide.
 - **Contributors:** [architecture, tests and development](https://github.com/decryptus/sonicprobe/blob/master/CONTRIBUTING.md).
+
+For the updated CSR return type and dependency requirements, see the
+[GenCert migration guide](docs/gencert-migration.md).

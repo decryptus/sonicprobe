@@ -105,6 +105,17 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
         return pkey
 
     def make_certreq(self, pkey, attributes, export_file=False, **kwargs):
+        if not hasattr(crypto, 'X509Req') or not hasattr(crypto, 'X509Extension'):
+            from sonicprobe.libs.gencert_extensions import make_certreq
+            csr = make_certreq(pkey, attributes, self.digest_type, kwargs)
+            if isinstance(export_file, string_types):
+                if not os.path.exists(export_file):
+                    open(export_file, 'wb').close()
+                os.chmod(export_file, 0o600)
+                with open(export_file, 'wb') as stream:
+                    from cryptography.hazmat.primitives.serialization import Encoding
+                    stream.write(csr.public_bytes(Encoding.PEM))
+            return csr
         csr     = crypto.X509Req()
         subject = csr.get_subject()
         for key, value in iteritems(attributes):
@@ -160,8 +171,16 @@ class GenCert(object): # pylint: disable=useless-object-inheritance
         crt.gmtime_adj_notBefore(86400 * self.notbefore_days)
         crt.gmtime_adj_notAfter(86400 * self.notafter_days)
         crt.set_issuer(ca.get_subject())
-        crt.set_subject(csr.get_subject())
-        crt.set_pubkey(csr.get_pubkey())
+        if hasattr(csr, 'public_bytes'):
+            if not csr.is_signature_valid:
+                raise ValueError('Invalid CSR signature')
+            subject = crt.get_subject()
+            for attribute in csr.subject:
+                setattr(subject, attribute.oid.dotted_string, attribute.value)
+            crt.set_pubkey(crypto.PKey.from_cryptography_key(csr.public_key()))
+        else:
+            crt.set_subject(csr.get_subject())
+            crt.set_pubkey(csr.get_pubkey())
         # The issuing application controls which CSR extensions it accepts.
 
         crt.sign(ca_pkey, self.digest_type)
