@@ -8,6 +8,8 @@ import yaml
 root = Path(__file__).resolve().parents[2]
 config = yaml.safe_load((root / 'setup.yml').read_text())
 name, version = config['name'], config['version']
+notes = root / 'docs' / ('release-' + version + '.md')
+assert notes.is_file() and notes.read_text().strip(), 'Missing versioned release notes'
 assert version == config['release'] == (root/'VERSION').read_text().strip() == (root/'RELEASE').read_text().strip()
 assert len(list((root/'dist').iterdir())) == 2
 wheel, = (root/'dist').glob('*.whl')

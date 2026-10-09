@@ -82,25 +82,21 @@ jobs:
           skip-existing: true
   github-release:
     needs: [release, publish]
-    if: needs.release.outputs.publish == 'true'
+    if: >-
+      always() && needs.release.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: python-distributions
-          path: dist/
-      - name: Publish the validated distributions and release notes
+      - name: Publish or recover the immutable GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release.outputs.tag }}
-        run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; preserving it."
-          else
-            gh release create "$TAG" dist/* --verify-tag --repo "$GITHUB_REPOSITORY" --title "Sonicprobe $TAG" --notes-file "docs/release-${TAG#v}.md"
-          fi
+        run: bash .github/scripts/publish-github-release.sh
