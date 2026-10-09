@@ -9,7 +9,7 @@ for backend in ('postgresql','mysql','mariadb'):
             command=['docker','exec','-u','postgres',container,'psql','-U','anysql','-d','anysql_test','-v','ON_ERROR_STOP=1','-At','-c']
         else:
             command=['docker','exec',container,'mysql' if backend=='mysql' else 'mariadb',
-                     '--protocol=socket','-uroot','-psynthetic-test-password','--batch','--skip-column-names','-e']
+                     '--protocol=socket', '--ssl-mode=DISABLED' if backend=='mysql' else '--skip-ssl', '-uroot','-psynthetic-test-password','--batch','--skip-column-names','-e']
         deadline=time.monotonic()+150
         while True:
             # Image entrypoints run a temporary socket-only server during bootstrap.
@@ -20,6 +20,7 @@ for backend in ('postgresql','mysql','mariadb'):
             if result.returncode==0 and result.stdout.strip()==expected:break
             running=subprocess.run(['docker','inspect','--format={{.State.Running}}',container],capture_output=True,check=True)
             if running.stdout.strip()!=b'true' or time.monotonic()>deadline:
+                print(result.stderr.decode('utf-8', errors='replace'), flush=True)
                 subprocess.run(['docker','logs',container],check=False)
                 raise RuntimeError('Disposable SQL server failed to start: '+backend+' '+kind)
             time.sleep(1)
