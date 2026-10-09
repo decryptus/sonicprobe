@@ -124,3 +124,63 @@ class SQLDriverContracts(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     backend.connect_by_uri(scheme + '://localhost/db?' + query)
                 self.assertFalse(driver.connect.called)
+
+    def test_verified_tls_maps_to_both_drivers_and_client_certificates(self):
+        for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
+            backend, driver = factory()[:2]
+            driver.connect.return_value.info.ssl_in_use = True
+            driver.connect.return_value.cursor.return_value.fetchone.return_value = ('Ssl_cipher', 'synthetic-cipher')
+            backend.connect_by_uri(scheme + '://alice:synthetic@db.example/db?mode=ro&tls=verify-full&tls_ca=%2Ftrust%2Fca.pem&tls_cert=%2Fprivate%2Fclient.pem&tls_key=%2Fprivate%2Fclient.key')
+            params = driver.connect.call_args[1]
+            self.assertNotIn('tls', params)
+            if scheme == 'mysql':
+                self.assertEqual(params['ssl_mode'], 'VERIFY_IDENTITY')
+                self.assertEqual(params['ssl'], {'ca':'/trust/ca.pem','cert':'/private/client.pem','key':'/private/client.key'})
+                driver.connect.return_value.cursor.return_value.execute.assert_any_call('SET SESSION TRANSACTION READ ONLY')
+            else:
+                self.assertEqual(params['sslmode'], 'verify-full')
+                self.assertEqual(params['sslrootcert'], '/trust/ca.pem')
+                self.assertEqual(params['sslcert'], '/private/client.pem')
+                self.assertEqual(params['sslkey'], '/private/client.key')
+                self.assertEqual(params['options'], '-c default_transaction_read_only=on')
+
+    def test_invalid_or_conflicting_tls_fails_before_connect(self):
+        cases = ('tls=required&tls_ca=/ca', 'tls=verify-full', 'tls_ca=/ca',
+                 'tls=verify-full&tls_ca=/ca&tls_cert=/cert',
+                 'tls=verify-full&tls_ca=/ca&tls_key=/key',
+                 'tls=verify-full&tls_ca=/ca&tls_ca=/other',
+                 'tls=verify-full&tls_ca=/ca&tls=verify-full',
+                 'tls=verify-full&tls_ca=/ca&tls_unknown=x',
+                 'tls=verify-full&tls_ca=/ca&sslmode=disable',
+                 'tls=verify-full&tls_ca=/ca&ssl_mode=DISABLED',
+                 'tls=verify-full&tls_ca=/ca&unix_socket=/socket',
+                 'tls=verify-full&tls_ca=/ca&read_default_file=/options',
+                 'tls=verify-full&tls_ca=%00', 'tls=verify-full&tls_ca=')
+        for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
+            for query in cases:
+                backend, driver = factory()[:2]
+                with self.assertRaises(ValueError):
+                    backend.connect_by_uri(scheme + '://db.example/db?' + query)
+                self.assertFalse(driver.connect.called)
+        backend, driver, _ = self.mysql()
+        with self.assertRaises(ValueError):
+            backend.connect_by_uri('mysql://localhost/db?tls=verify-full&tls_ca=/ca')
+        self.assertFalse(driver.connect.called)
+
+    def test_unencrypted_result_closes_instead_of_falling_back(self):
+        for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
+            backend, driver = factory()[:2]
+            driver.connect.return_value.info.ssl_in_use = False
+            driver.connect.return_value.cursor.return_value.fetchone.return_value = ('Ssl_cipher', '')
+            with self.assertRaises(ValueError):
+                backend.connect_by_uri(scheme + '://db.example/db?tls=verify-full&tls_ca=/ca')
+            self.assertEqual(driver.connect.call_count, 1)
+            driver.connect.return_value.close.assert_called_once_with()
+
+    def test_tls_handshake_error_is_not_retried(self):
+        for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
+            backend, driver = factory()[:2]
+            driver.connect.side_effect = RuntimeError('synthetic certificate mismatch')
+            with self.assertRaises(RuntimeError):
+                backend.connect_by_uri(scheme + '://db.example/db?tls=verify-full&tls_ca=/ca')
+            self.assertEqual(driver.connect.call_count, 1)
