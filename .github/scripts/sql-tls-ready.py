@@ -15,10 +15,11 @@ for backend in ('postgresql','mysql','mariadb'):
             # Image entrypoints run a temporary socket-only server during bootstrap.
             # Wait for the final TCP-enabled server before creating fixture users.
             probe = "SELECT current_setting('listen_addresses')" if backend=='postgresql' else 'SELECT @@skip_networking'
-            result=subprocess.run(command+[probe],capture_output=True)
+            result=subprocess.run(command+[probe],capture_output=True,timeout=10)
             expected=b'*' if backend=='postgresql' else b'0'
             if result.returncode==0 and result.stdout.strip()==expected:break
-            if time.monotonic()>deadline:
+            running=subprocess.run(['docker','inspect','--format={{.State.Running}}',container],capture_output=True,check=True)
+            if running.stdout.strip()!=b'true' or time.monotonic()>deadline:
                 subprocess.run(['docker','logs',container],check=False)
                 raise RuntimeError('Disposable SQL server failed to start: '+backend+' '+kind)
             time.sleep(1)
