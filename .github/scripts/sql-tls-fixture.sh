@@ -32,9 +32,11 @@ for backend in postgresql mysql mariadb; do
       if [[ "$kind" == plain ]]; then args=(postgres -c ssl=off); fi
       env_args=(-e POSTGRES_DB=anysql_test -e POSTGRES_USER=anysql -e POSTGRES_PASSWORD=synthetic-test-password)
     else
-      args=(mysqld --ssl-ca=/certs/ca.pem --ssl-cert=/certs/server.pem --ssl-key=/certs/server.key)
+      daemon=mysqld
+      if [[ "$backend" == mariadb ]]; then daemon=mariadbd; fi
+      args=("$daemon" --ssl-ca=/certs/ca.pem --ssl-cert=/certs/server.pem --ssl-key=/certs/server.key)
       if [[ "$kind" == plain ]]; then
-        if [[ "$backend" == mysql ]]; then args=(mysqld --tls-version=); else args=(mysqld --skip-ssl); fi
+        if [[ "$backend" == mysql ]]; then args=(mysqld --tls-version=); else args=(mariadbd --skip-ssl); fi
       fi
       env_args=(-e MYSQL_DATABASE=anysql_test -e MYSQL_ROOT_PASSWORD=synthetic-test-password -e MYSQL_ROOT_HOST=% -e MYSQL_USER=anysql -e MYSQL_PASSWORD=synthetic-test-password)
     fi
