@@ -15,7 +15,7 @@ import MySQLdb
 import MySQLdb.cursors
 from MySQLdb.converters import conversions as CST_CONVERSIONS
 
-from sonicprobe.libs import anysql
+from sonicprobe.libs import anysql, sqltls
 from sonicprobe.libs.urisup import AUTHORITY, PATH, QUERY, uri_help_split
 
 ACCESS_MODE_STATEMENTS = {
@@ -86,8 +86,16 @@ def connect_by_uri(uri):
     """
     puri = uri_help_split(uri)
     mode = anysql._connection_mode(puri[QUERY], ACCESS_MODE_STATEMENTS)
+    tls = sqltls.configuration(puri[QUERY], puri[AUTHORITY][2] if puri[AUTHORITY] else None, 'mysql')
     params = __dict_from_query(puri[QUERY])
     params.pop('mode', None)
+    for key in sqltls.TLS_KEYS:
+        params.pop(key, None)
+    if tls is not None:
+        params['ssl_mode'] = 'VERIFY_IDENTITY'
+        params['ssl'] = {'ca': tls['tls_ca']}
+        if 'tls_cert' in tls:
+            params['ssl'].update(cert=tls['tls_cert'], key=tls['tls_key'])
     if puri[AUTHORITY]:
         user, passwd, host, port = puri[AUTHORITY]
         if user:
@@ -143,8 +151,13 @@ def connect_by_uri(uri):
 
     cursor = None
     try:
-        if cparams or mode is not None:
+        if cparams or mode is not None or tls is not None:
             cursor = conn.cursor()
+            if tls is not None:
+                cursor.execute("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
+                row = cursor.fetchone()
+                if not row or not row[1]:
+                    raise ValueError('SQL TLS was not negotiated')
             for key, value in iteritems(cparams):
                 if value is not None:
                     # Keys come only from __conn_typemap; values use DBAPI binding.

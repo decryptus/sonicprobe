@@ -14,7 +14,7 @@ from six import iterkeys
 import psycopg2
 import psycopg2.extensions
 
-from sonicprobe.libs import anysql
+from sonicprobe.libs import anysql, sqltls
 from sonicprobe.libs.urisup import AUTHORITY, PATH, QUERY, uri_help_split
 
 ACCESS_MODE_OPTIONS = {
@@ -71,10 +71,15 @@ def connect_by_uri(uri):
     """
     puri = uri_help_split(uri)
     mode = anysql._connection_mode(puri[QUERY], ACCESS_MODE_OPTIONS)
+    tls = sqltls.configuration(puri[QUERY], puri[AUTHORITY][2] if puri[AUTHORITY] else None, 'postgresql')
     #params = __dict_from_query(puri[QUERY])
     params = {}
     if mode is not None:
         params['options'] = ACCESS_MODE_OPTIONS[mode]
+    if tls is not None:
+        params.update(sslmode='verify-full', sslrootcert=tls['tls_ca'])
+        if 'tls_cert' in tls:
+            params.update(sslcert=tls['tls_cert'], sslkey=tls['tls_key'])
 
     if puri[AUTHORITY]:
         user, passwd, host, port = puri[AUTHORITY]
@@ -93,7 +98,15 @@ def connect_by_uri(uri):
 
     #__apply_types(params, __typemap)
 
-    return psycopg2.connect(**params)
+    conn = psycopg2.connect(**params)
+    if tls is not None:
+        try:
+            if not conn.info.ssl_in_use:
+                raise ValueError('SQL TLS was not negotiated')
+        except BaseException:
+            conn.close()
+            raise
+    return conn
 
 def escape(s):
     return '.'.join(['"%s"' % comp.replace('"', '""') for comp in s.split('.')])

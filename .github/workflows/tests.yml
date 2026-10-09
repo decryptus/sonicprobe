@@ -187,3 +187,32 @@ jobs:
           cd "$(mktemp -d)"
           python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/sql_integration"
           python -m unittest discover -s "$GITHUB_WORKSPACE/sql_integration" -v
+
+  sql-tls:
+    name: Verified SQL TLS (PostgreSQL, MySQL and MariaDB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install candidate and TLS test drivers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes default-libmysqlclient-dev pkg-config
+          python -m pip install . mysqlclient psycopg2-binary
+      - name: Start disposable certificate fixtures
+        run: bash .github/scripts/sql-tls-fixture.sh start "$RUNNER_TEMP/sql-tls-fixtures"
+      - name: Verify actual TLS, certificates, hostname checks and access modes
+        env:
+          SONICPROBE_SQL_TLS_FIXTURES: ${{ runner.temp }}/sql-tls-fixtures
+        run: |
+          cd "$(mktemp -d)"
+          python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/tls_integration"
+          python -m unittest discover -s "$GITHUB_WORKSPACE/tls_integration" -v
+      - name: Stop disposable fixtures
+        if: always()
+        run: bash .github/scripts/sql-tls-fixture.sh stop
