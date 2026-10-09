@@ -11,9 +11,13 @@ Copyright (C) 2007-2010  Proformatique
 
 import sqlite3
 import os.path
+import sys
 
 from sonicprobe.libs import anysql
 from sonicprobe.libs.urisup import PATH, QUERY, uri_help_split, uri_help_unsplit
+
+OPEN_MODES = frozenset(('ro', 'rw', 'rwc'))
+URI_MODES_SUPPORTED = sys.version_info >= (3, 4) and sqlite3.sqlite_version_info >= (3, 7, 7)
 
 def __dict_from_query(query):
     if not query:
@@ -24,6 +28,26 @@ def connect_by_uri(uri):
     puri = uri_help_split(uri)
     opts = __dict_from_query(puri[QUERY])
 
+    mode = anysql._connection_mode(puri[QUERY], OPEN_MODES)
+    if mode is not None:
+        if not puri[PATH] or puri[PATH] == ':memory:':
+            raise ValueError('SQLite open modes require a file path')
+        if not URI_MODES_SUPPORTED:
+            raise NotImplementedError('SQLite open modes require Python 3.4+ and SQLite 3.7.7+')
+        # Imported only for explicit modes: the default path still supports Python 2.
+        from pathlib import Path
+        database = Path(puri[PATH]).absolute().as_uri() + '?mode=' + mode
+        kwargs = {'uri': True}
+        thread_options = [value for key, value in puri[QUERY] if key == 'check_same_thread']
+        if thread_options:
+            if len(thread_options) != 1 or thread_options[0] not in ('true', 'false'):
+                raise ValueError('invalid SQLite thread check option')
+            kwargs['check_same_thread'] = thread_options[0] == 'true'
+        if 'timeout_ms' in opts:
+            kwargs['timeout'] = float(opts['timeout_ms']) / 1000.0
+        return sqlite3.connect(database, **kwargs)
+
+    # Keep the historical call unchanged, including creation and :memory: behavior.
     con = None
     if 'timeout_ms' in opts:
         con = sqlite3.connect(puri[PATH], float(opts['timeout_ms']) / 1000.0)

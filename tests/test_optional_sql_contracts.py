@@ -65,9 +65,62 @@ class SQLDriverContracts(unittest.TestCase):
         driver.connect.call_args[1]['conv'][1].append('added')
         self.assertEqual(conversions.conversions[1], ['original'])
 
-    def test_postgres_identifier_quotes_are_doubled(self):
+    def postgres(self):
         driver = types.ModuleType('psycopg2')
         driver.apilevel, driver.paramstyle, driver.threadsafety = '2.0', 'pyformat', 2
+        driver.connect = mock.Mock()
         driver.extensions = mock.Mock()
         backend = self.load_backend('postgresql', {'psycopg2': driver, 'psycopg2.extensions': driver.extensions})
+        return backend, driver
+
+    def test_postgres_identifier_quotes_are_doubled(self):
+        backend, _ = self.postgres()
         self.assertEqual(backend.escape('schema.a"b'), '"schema"."a""b"')
+
+    def test_mysql_modes_configure_session_and_are_not_driver_keywords(self):
+        for mode, statement in (('ro', 'SET SESSION TRANSACTION READ ONLY'),
+                                ('rw', 'SET SESSION TRANSACTION READ WRITE'),
+                                ('rwc', 'SET SESSION TRANSACTION READ WRITE')):
+            backend, driver, _ = self.mysql()
+            connection = backend.connect_by_uri('mysql://localhost/db?mode=' + mode)
+            self.assertNotIn('mode', driver.connect.call_args[1])
+            connection.cursor.return_value.execute.assert_called_once_with(statement)
+            connection.cursor.return_value.close.assert_called_once_with()
+
+    def test_mysql_default_does_not_change_session_access_mode(self):
+        backend, driver, _ = self.mysql()
+        connection = backend.connect_by_uri('mysql://localhost/db')
+        self.assertFalse(connection.cursor.called)
+        self.assertNotIn('mode', driver.connect.call_args[1])
+
+    def test_mysql_rejected_mode_setup_closes_connection_without_fallback(self):
+        backend, driver, _ = self.mysql()
+        connection = driver.connect.return_value
+        connection.cursor.return_value.execute.side_effect = RuntimeError('unsupported server')
+        with self.assertRaises(RuntimeError):
+            backend.connect_by_uri('mysql://localhost/db?mode=ro')
+        connection.close.assert_called_once_with()
+        connection.cursor.return_value.close.assert_called_once_with()
+        self.assertEqual(driver.connect.call_count, 1)
+
+    def test_postgres_modes_are_set_at_connection_start(self):
+        for mode, setting in (('ro', 'on'), ('rw', 'off'), ('rwc', 'off')):
+            backend, driver = self.postgres()
+            backend.connect_by_uri('postgresql://alice:synthetic@localhost:5432/db?mode=' + mode)
+            driver.connect.assert_called_once_with(user='alice', password='synthetic',
+                host='localhost', port='5432', database='db',
+                options='-c default_transaction_read_only=' + setting)
+
+    def test_postgres_default_preserves_connection_parameters(self):
+        backend, driver = self.postgres()
+        backend.connect_by_uri('postgresql://localhost/db?previously_ignored=unchanged')
+        driver.connect.assert_called_once_with(host='localhost', database='db')
+
+    def test_server_backends_reject_bad_modes_before_connecting(self):
+        for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
+            for query in ('mode=', 'mode=invalid', 'mode=RO', 'mode=ro&mode=rw'):
+                result = factory()
+                backend, driver = result[:2]
+                with self.assertRaises(ValueError):
+                    backend.connect_by_uri(scheme + '://localhost/db?' + query)
+                self.assertFalse(driver.connect.called)

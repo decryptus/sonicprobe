@@ -129,3 +129,61 @@ jobs:
           bash /src/.github/scripts/test-legacy.sh
 
 
+  sql-access-modes:
+    name: SQL access modes (real MySQL, MariaDB and PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: synthetic-root-password
+          MYSQL_DATABASE: anysql_test
+          MYSQL_USER: anysql
+          MYSQL_PASSWORD: synthetic-test-password
+        ports: ['33306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: synthetic-root-password
+          MARIADB_DATABASE: anysql_test
+          MARIADB_USER: anysql
+          MARIADB_PASSWORD: synthetic-test-password
+        ports: ['33307:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+      postgresql:
+        image: postgres:16
+        env:
+          POSTGRES_DB: anysql_test
+          POSTGRES_USER: anysql
+          POSTGRES_PASSWORD: synthetic-test-password
+        ports: ['35432:5432']
+        options: >-
+          --health-cmd "pg_isready -U anysql -d anysql_test"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install SQL drivers and the candidate package
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes default-libmysqlclient-dev pkg-config
+          python -m pip install . mysqlclient psycopg2-binary
+      - name: Verify access modes using installed AnySQL and disposable servers
+        env:
+          SONICPROBE_MYSQL_TEST_URL: mysql://anysql:synthetic-test-password@127.0.0.1:33306/anysql_test
+          SONICPROBE_MARIADB_TEST_URL: mysql://anysql:synthetic-test-password@127.0.0.1:33307/anysql_test
+          SONICPROBE_POSTGRESQL_TEST_URL: postgresql://anysql:synthetic-test-password@127.0.0.1:35432/anysql_test
+        run: |
+          cd "$(mktemp -d)"
+          python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/sql_integration"
+          python -m unittest discover -s "$GITHUB_WORKSPACE/sql_integration" -v

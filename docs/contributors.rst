@@ -17,3 +17,5 @@ For installation and operation, return to :doc:`/index`.
    network-review
    utility-review-2026-10-04
    audit-corrections-2026-10-07
+
+   sql-access-validation

@@ -4,8 +4,8 @@ description: sonicprobe
 author: Adrien Delle Cave
 author_email: pypi@doowan.net
 copyright: '2022-2026 Adrien Delle Cave'
-release: '0.3.58'
-version: '0.3.58'
+release: '0.3.59'
+version: '0.3.59'
 license: License GPL-3
 url: https://github.com/decryptus/sonicprobe
 python_requires:

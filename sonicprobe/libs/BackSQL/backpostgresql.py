@@ -15,7 +15,13 @@ import psycopg2
 import psycopg2.extensions
 
 from sonicprobe.libs import anysql
-from sonicprobe.libs.urisup import AUTHORITY, PATH, uri_help_split
+from sonicprobe.libs.urisup import AUTHORITY, PATH, QUERY, uri_help_split
+
+ACCESS_MODE_OPTIONS = {
+    'ro': '-c default_transaction_read_only=on',
+    'rw': '-c default_transaction_read_only=off',
+    'rwc': '-c default_transaction_read_only=off',
+}
 
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
@@ -64,8 +70,11 @@ def connect_by_uri(uri):
     transmit within an URI...
     """
     puri = uri_help_split(uri)
+    mode = anysql._connection_mode(puri[QUERY], ACCESS_MODE_OPTIONS)
     #params = __dict_from_query(puri[QUERY])
     params = {}
+    if mode is not None:
+        params['options'] = ACCESS_MODE_OPTIONS[mode]
 
     if puri[AUTHORITY]:
         user, passwd, host, port = puri[AUTHORITY]
