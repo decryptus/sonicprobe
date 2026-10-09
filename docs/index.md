@@ -10,6 +10,7 @@ Installation, configuration, public APIs and troubleshooting.
    :caption: User guide and reference
 
    sql-access-modes
+   release-0.3.59
    release-0.3.58
    gencert-migration
    release-0.3.57
