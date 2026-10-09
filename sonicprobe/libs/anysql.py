@@ -375,6 +375,15 @@ class connection(object): # pylint: disable=useless-object-inheritance
         self.__dbapi2_conn = uri_connect_method(self.sqluri)
 
     @property
+    def driver_connection(self):
+        """Underlying DBAPI connection for backend-specific adapter operations.
+
+        Its lifetime belongs to this AnySQL connection. Direct driver calls do
+        not reconnect or replay operations; portable consumers use cursor().
+        """
+        return self.__dbapi2_conn
+
+    @property
     def auto_reconnect(self):
         return self.__auto_reconnect
 
@@ -527,6 +536,16 @@ def _get_methods_by_uri(sqluri):
         raise NotImplementedError('Unknown URI scheme "%r". (error: %r)' % (uri_scheme, e))
 
     return __uri_create_methods[uri_scheme]
+
+def _connection_mode(query, allowed_modes):
+    """Read the optional backend access mode without changing omitted defaults."""
+    modes = [value for key, value in (query or ()) if key == 'mode']
+    if not modes:
+        return None
+    if len(modes) != 1 or modes[0] not in allowed_modes:
+        raise ValueError('invalid database access mode')
+    return modes[0]
+
 
 def connect_by_uri(sqluri, auto_reconnect=True):
     """

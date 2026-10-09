@@ -18,6 +18,12 @@ from MySQLdb.converters import conversions as CST_CONVERSIONS
 from sonicprobe.libs import anysql
 from sonicprobe.libs.urisup import AUTHORITY, PATH, QUERY, uri_help_split
 
+ACCESS_MODE_STATEMENTS = {
+    'ro': 'SET SESSION TRANSACTION READ ONLY',
+    'rw': 'SET SESSION TRANSACTION READ WRITE',
+    'rwc': 'SET SESSION TRANSACTION READ WRITE',
+}
+
 __typemap = {
     'host': str,
     'user': str,
@@ -79,7 +85,9 @@ def connect_by_uri(uri):
 
     """
     puri = uri_help_split(uri)
+    mode = anysql._connection_mode(puri[QUERY], ACCESS_MODE_STATEMENTS)
     params = __dict_from_query(puri[QUERY])
+    params.pop('mode', None)
     if puri[AUTHORITY]:
         user, passwd, host, port = puri[AUTHORITY]
         if user:
@@ -135,12 +143,14 @@ def connect_by_uri(uri):
 
     cursor = None
     try:
-        if cparams:
+        if cparams or mode is not None:
             cursor = conn.cursor()
             for key, value in iteritems(cparams):
                 if value is not None:
                     # Keys come only from __conn_typemap; values use DBAPI binding.
                     cursor.execute("SET @@session.%s = %%s" % key, (value,))
+            if mode is not None:
+                cursor.execute(ACCESS_MODE_STATEMENTS[mode])
             cursor.close()
             cursor = None
     except BaseException:
