@@ -43,6 +43,17 @@ restrict access to other files that arbitrary application code can open.
 
 ## Backend-specific adapters
 
+PostgreSQL accepts an explicit `connect_timeout` URI parameter, for example
+`postgresql://user:password@db.example/database?mode=ro&connect_timeout=5`.
+The value must be a single positive decimal integer no greater than 2147483647;
+empty, zero, negative, fractional and repeated values are rejected before
+connection. It is passed to the driver as a connection timeout, not a SQL
+statement deadline. Omitting it preserves the historical driver parameters.
+This option does not change access modes, TLS verification or retry policy.
+The PostgreSQL backend advertises `CONNECT_TIMEOUT_SUPPORTED = True`. Consumers
+that require this option can check it before connecting and reject older adapters
+which silently ignored the parameter.
+
 `connection.driver_connection` exposes the underlying DBAPI connection for
 backend-specific operations (SQLite pragmas, trace callbacks and transaction
 configuration). Its lifetime belongs to the AnySQL connection. Driver calls do

@@ -116,6 +116,22 @@ class SQLDriverContracts(unittest.TestCase):
         backend.connect_by_uri('postgresql://localhost/db?previously_ignored=unchanged')
         driver.connect.assert_called_once_with(host='localhost', database='db')
 
+    def test_postgres_explicit_connect_timeout_reaches_driver(self):
+        backend, driver = self.postgres()
+        self.assertIs(backend.CONNECT_TIMEOUT_SUPPORTED, True)
+        backend.connect_by_uri('postgresql://localhost/db?mode=ro&connect_timeout=5')
+        driver.connect.assert_called_once_with(host='localhost', database='db',
+            options='-c default_transaction_read_only=on', connect_timeout=5)
+
+    def test_postgres_invalid_connect_timeout_is_rejected_before_connection(self):
+        for query in ('connect_timeout=', 'connect_timeout=0', 'connect_timeout=-1',
+                      'connect_timeout=2.5', 'connect_timeout=2147483648',
+                      'connect_timeout=2&connect_timeout=3', 'connect_timeout=2%0A'):
+            backend, driver = self.postgres()
+            with self.assertRaises(ValueError):
+                backend.connect_by_uri('postgresql://localhost/db?' + query)
+            self.assertFalse(driver.connect.called)
+
     def test_server_backends_reject_bad_modes_before_connecting(self):
         for factory, scheme in ((self.mysql, 'mysql'), (self.postgres, 'postgresql')):
             for query in ('mode=', 'mode=invalid', 'mode=RO', 'mode=ro&mode=rw'):

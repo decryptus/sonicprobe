@@ -11,6 +11,7 @@ Installation, configuration, public APIs and troubleshooting.
 
    sql-access-modes
    sql-tls
+   release-0.3.61
    release-0.3.60
    release-0.3.59
    release-0.3.58
