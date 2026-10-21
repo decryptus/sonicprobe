@@ -10,6 +10,7 @@ Copyright (C) 2010  Avencall
 """
 
 from six import iterkeys
+import re
 
 import psycopg2
 import psycopg2.extensions
@@ -22,6 +23,11 @@ ACCESS_MODE_OPTIONS = {
     'rw': '-c default_transaction_read_only=off',
     'rwc': '-c default_transaction_read_only=off',
 }
+CONNECT_TIMEOUT_PATTERN = re.compile(r'^[0-9]{1,10}\Z')
+MAX_CONNECT_TIMEOUT = 2147483647
+# Consumers requiring a finite connection timeout can reject older adapters
+# before attempting a connection whose URI options would be silently ignored.
+CONNECT_TIMEOUT_SUPPORTED = True
 
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
@@ -74,6 +80,12 @@ def connect_by_uri(uri):
     tls = sqltls.configuration(puri[QUERY], puri[AUTHORITY][2] if puri[AUTHORITY] else None, 'postgresql')
     #params = __dict_from_query(puri[QUERY])
     params = {}
+    timeouts = [value for key, value in (puri[QUERY] or []) if key == 'connect_timeout']
+    if timeouts:
+        if (len(timeouts) != 1 or not CONNECT_TIMEOUT_PATTERN.match(timeouts[0])
+                or not 1 <= int(timeouts[0]) <= MAX_CONNECT_TIMEOUT):
+            raise ValueError('invalid PostgreSQL connect_timeout')
+        params['connect_timeout'] = int(timeouts[0])
     if mode is not None:
         params['options'] = ACCESS_MODE_OPTIONS[mode]
     if tls is not None:

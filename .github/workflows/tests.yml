@@ -187,6 +187,11 @@ jobs:
           cd "$(mktemp -d)"
           python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/sql_integration"
           python -m unittest discover -s "$GITHUB_WORKSPACE/sql_integration" -v
+      - name: Verify installed PostgreSQL startup timeout
+        run: |
+          cd "$(mktemp -d)"
+          python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/connection_integration"
+          python -m unittest discover -s "$GITHUB_WORKSPACE/connection_integration" -v
 
   sql-tls:
     name: Verified SQL TLS (PostgreSQL, MySQL and MariaDB)
