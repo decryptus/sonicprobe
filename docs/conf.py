@@ -187,6 +187,7 @@ epub_exclude_files = ['search.html']
 # Keep both documentation audiences explicit on every generated page.
 html_context = {'contributor_index': 'contributors', 'contributor_pages': ['contributors', 'contributing', 'CONCURRENCY_REVIEW', 'REVIEW', 'architecture-review-2026-09-27', 'keystore-lifecycle-review', 'library-review-status', 'network-review', 'utility-review-2026-10-04']}
 html_sidebars = {'**': ['about.html', 'documentation-tracks.html', 'localtoc.html', 'searchbox.html']}
+html_context['contributor_pages'].append('sqlite-transactions-validation')
 
 REPOSITORY_DOCUMENTATION_URL = 'https://github.com/decryptus/sonicprobe/blob/master/'
 

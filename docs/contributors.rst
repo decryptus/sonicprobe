@@ -20,3 +20,4 @@ For installation and operation, return to :doc:`/index`.
 
    sql-access-validation
    sql-tls-validation
+   sqlite-transactions-validation

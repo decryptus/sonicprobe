@@ -10,7 +10,9 @@ Installation, configuration, public APIs and troubleshooting.
    :caption: User guide and reference
 
    sql-access-modes
+   sqlite-transactions
    sql-tls
+   release-0.3.62
    release-0.3.61
    release-0.3.60
    release-0.3.59
