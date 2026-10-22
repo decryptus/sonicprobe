@@ -2,7 +2,9 @@
 """Explicit, non-replaying SQLite transactions for an AnySQL connection."""
 from contextlib import contextmanager
 import sqlite3
+import sys
 import threading
+from six import reraise
 
 
 class SQLiteTransactions(object):
@@ -62,13 +64,19 @@ class SQLiteTransactions(object):
                     raise ValueError('SQLite transaction connection changed')
                 self._driver.execute('COMMIT')
             except BaseException:
+                failure = sys.exc_info()
                 try:
                     self._driver.execute('ROLLBACK')
                 except Exception:
                     # Keep the original error and prevent reuse after uncertain
                     # cleanup. No reconnect, replay or second commit is allowed.
                     self._failed = True
-                raise
+                # Python 2 replaces the active exception after a nested except.
+                # Preserve the original exception and traceback on every runtime.
+                try:
+                    reraise(*failure)
+                finally:
+                    del failure
             finally:
                 self._active = False
                 self._read_only = False
