@@ -379,23 +379,48 @@ def file_w_create_directories(filepath):
     return open(filepath, 'w')
 
 def file_w_tmp(lines, path = None, mode = 'w+'):
-    with tempfile.NamedTemporaryFile(mode, delete = False) as f:
-        LOG.debug("writing temporary file: %r", f.name)
-        f.writelines(lines)
-        flush_sync_file_object(f)
+    """Write and sync a temporary file, atomically replacing a named target."""
+    if path and os.path.isdir(path):
+        # Keep the generated file private until it is ready for directory readers.
+        staging = tempfile.mkdtemp(dir = path)
+        try:
+            name = _write_synced_temp(lines, staging, mode)
+            target = os.path.join(path, os.path.basename(name))
+            if os.path.lexists(target):
+                raise shutil.Error("Destination path '%s' already exists" % target)
+            os.rename(name, target)
+        finally:
+            shutil.rmtree(staging)
+        return path
 
+    directory = (os.path.dirname(path) or os.curdir) if path else None
+    name = _write_synced_temp(lines, directory, mode)
     if not path:
-        return f.name
+        return name
 
-    if os.path.isfile(path):
-        LOG.debug("overwriting file: %r", path)
-        stat = os.stat(path)
-        os.chmod(f.name, stat.st_mode)
-        os.chown(f.name, stat.st_uid, stat.st_gid)
-    LOG.debug("move file: %r to %r", f.name, path)
-    shutil.move(f.name, path)
-
+    try:
+        if os.path.isfile(path):
+            stat = os.stat(path)
+            os.chown(name, stat.st_uid, stat.st_gid)
+            os.chmod(name, stat.st_mode)
+        LOG.debug("rename file: %r to %r", name, path)
+        os.rename(name, path)
+    except BaseException:
+        os.unlink(name)
+        raise
     return path
+
+def _write_synced_temp(lines, directory, mode):
+    tmp = tempfile.NamedTemporaryFile(mode, dir = directory, delete = False)
+    try:
+        with tmp:
+            LOG.debug("writing temporary file: %r", tmp.name)
+            tmp.writelines(lines)
+            flush_sync_file_object(tmp)
+    except BaseException:
+        os.unlink(tmp.name)
+        raise
+    return tmp.name
 
 def read_large_file(src, dst = None, buffer_size = 8192):
     if buffer_size < 1:
