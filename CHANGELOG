@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.63) unstable; urgency=medium
+
+  * Stage file_w_tmp beside the target for atomic replacement across mounts.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 05 Nov 2026 06:00:00 +0000
+
 python-sonicprobe (0.3.58) unstable; urgency=medium
 
   * Use maintained cryptography and pyOpenSSL versions on Python 3.10 and newer.

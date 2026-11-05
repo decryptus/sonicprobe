@@ -6,11 +6,11 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
-## Current release: 0.3.58
+## Current release: 0.3.63
 
-XYS, network validation, utility I/O and Keystore lifecycle corrections.
-Read the [release notes and compatibility changes](docs/release-0.3.58.md)
-before upgrading, especially if you combine global and section locks.
+Temporary file writes now replace named targets atomically even when the
+system temporary directory is on a different filesystem.
+Read the [release notes](docs/release-0.3.63.md) for details.
 
 ## What is here?
 
