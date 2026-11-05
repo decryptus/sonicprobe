@@ -88,6 +88,13 @@ Base64 decoding accepts wrapped input. Invalid tiny chunk sizes raise `ValueErro
 instead of silently returning truncated results. In-memory file accumulation uses
 chunk lists to avoid repeated copying of a growing byte string.
 
+On Unix, `helpers.file_w_tmp(lines, path)` writes and syncs a temporary file in
+the destination directory before renaming it over the named file. Readers see
+the old or the complete new contents, even when the system temporary directory
+is on another filesystem. Replacing a regular file preserves its owner, group
+and permission bits. Omitting `path` returns a temporary filename for the caller
+to remove.
+
 ```python
 from sonicprobe.libs import anysql
 connection = anysql.connect_by_uri('sqlite3::memory:?timeout_ms=250')
