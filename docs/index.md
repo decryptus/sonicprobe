@@ -12,6 +12,7 @@ Installation, configuration, public APIs and troubleshooting.
    sql-access-modes
    sqlite-transactions
    sql-tls
+   release-0.3.63
    release-0.3.62
    release-0.3.61
    release-0.3.60
