@@ -32,6 +32,9 @@ regex shorthand. Detailed rules support `regex`, `choices` and, for arguments,
 `nargs` (a nonnegative integer, `+`, or `*`) and `repeatable` (boolean).
 A zero-argument option cannot have value constraints. Regexes use full matching
 and a 50 ms deadline per value. Both regex and choices apply if configured.
+Python 2 uses a disposable matching process because its regex engine has no
+native timeout; this adds per-value process overhead. Modern Python uses the
+engine deadline directly. Both paths validate without changing the input.
 Patterns are limited to 1024 characters and input strings to 65536 characters;
 NUL bytes are rejected. The `regex` package is a declared dependency.
 

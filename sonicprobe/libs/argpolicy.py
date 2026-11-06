@@ -6,6 +6,9 @@ Policies are compiled once. Regex evaluation uses the ``regex`` engine
 with a deadline; absence of that engine is a configuration error, never a bypass.
 """
 import re
+import multiprocessing
+import os
+import signal
 import six
 
 OPTION_NAME = re.compile(r'^(?:--?)?[A-Za-z][A-Za-z0-9_-]*\Z')
@@ -65,6 +68,46 @@ def _entries(spec, normalize, rules):
     return result
 
 
+def _legacy_regex_worker(sender, pattern, value):
+    # Python 2's last regex engine has no timeout API. Keep only matching in
+    # a disposable process so catastrophic backtracking cannot block a worker.
+    try:
+        import regex
+        sender.send(regex.compile(pattern).fullmatch(value) is not None)
+    except Exception:
+        sender.send(False)
+    finally:
+        sender.close()
+
+
+def _legacy_fullmatch(pattern, value, name):
+    receiver, sender = multiprocessing.Pipe(duplex=False)
+    worker = multiprocessing.Process(target=_legacy_regex_worker, args=(sender, pattern, value))
+    worker.daemon = True
+    started = False
+    try:
+        worker.start()
+        started = True
+        sender.close()
+        if not receiver.poll(REGEX_TIMEOUT):
+            raise ValidationError('regex deadline exceeded for ' + name)
+        try:
+            return True if receiver.recv() else None
+        except EOFError:
+            raise ValidationError('regex worker failed for ' + name)
+    finally:
+        sender.close()
+        receiver.close()
+        if started:
+            worker.join(REGEX_TIMEOUT)
+            if worker.is_alive():
+                worker.terminate()
+                worker.join(REGEX_TIMEOUT)
+                if worker.is_alive():
+                    os.kill(worker.pid, signal.SIGKILL)
+                    worker.join()
+
+
 class _Rule(object):
     def __init__(self, name, spec, arguments):
         self.name = name
@@ -112,7 +155,10 @@ class _Rule(object):
             raise ValidationError('value outside choices for ' + self.name)
         if self.pattern is not None:
             try:
-                valid = self.pattern.fullmatch(value, timeout=REGEX_TIMEOUT)
+                if six.PY2:
+                    valid = _legacy_fullmatch(self.pattern.pattern, value, self.name)
+                else:
+                    valid = self.pattern.fullmatch(value, timeout=REGEX_TIMEOUT)
             except Exception as error:
                 if type(error).__name__ != 'TimeoutError':
                     raise
