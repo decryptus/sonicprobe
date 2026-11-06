@@ -9,6 +9,7 @@ Installation, configuration, public APIs and troubleshooting.
    :maxdepth: 1
    :caption: User guide and reference
 
+   argpolicy
    sql-access-modes
    sqlite-transactions
    sql-tls

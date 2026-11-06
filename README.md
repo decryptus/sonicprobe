@@ -199,3 +199,8 @@ and verification limits.
 
 For the updated CSR return type and dependency requirements, see the
 [GenCert migration guide](docs/gencert-migration.md).
+
+## Argument and environment validation
+
+See [argpolicy](docs/argpolicy.md) for literal argument and environment policies,
+regex and choice validation, option repetition and unchanged input forwarding.
