@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Validate literal argv/environment inputs without rewriting or executing them.
 
-Policies are compiled once. Regex evaluation uses the optional ``regex`` engine
+Policies are compiled once. Regex evaluation uses the ``regex`` engine
 with a deadline; absence of that engine is a configuration error, never a bypass.
 """
 import re
