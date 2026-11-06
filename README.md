@@ -6,11 +6,11 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
-## Current release: 0.3.63
+## Current release: 0.3.64
 
-Temporary file writes now replace named targets atomically even when the
-system temporary directory is on a different filesystem.
-Read the [release notes](docs/release-0.3.63.md) for details.
+`argpolicy` validates literal command arguments and environment variables with
+allow/deny rules, bounded regex matching, choices, repetitions and value counts.
+Read the [release notes](docs/release-0.3.64.md) and [API guide](docs/argpolicy.md).
 
 ## What is here?
 
