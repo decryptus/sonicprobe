@@ -9,6 +9,7 @@ Installation, configuration, public APIs and troubleshooting.
    :maxdepth: 1
    :caption: User guide and reference
 
+   release-0.3.65
    release-0.3.64
    argpolicy
    sql-access-modes
