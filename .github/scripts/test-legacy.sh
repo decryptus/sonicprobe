@@ -17,6 +17,6 @@ BOOT
 cp -R /src /tmp/source
 # Seed the package under test before pip 20 resolves circular dependencies.
 python -m pip install --no-build-isolation --no-deps /tmp/source
-python -m pip install --no-build-isolation /tmp/source "httpdis==0.6.27" "dwho==0.3.61" mock
+python -m pip install --no-build-isolation /tmp/source "httpdis==0.7.1" "dwho==0.3.61" mock
 cd /tmp
 python -B -m unittest discover -s /tmp/source/tests -v

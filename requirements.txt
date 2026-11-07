@@ -1,4 +1,4 @@
-httpdis>=0.6.26
+httpdis>=0.7.1
 pyOpenSSL<26.2; python_version < '3.10'
 pyOpenSSL>=26.4,<27; python_version >= '3.10'
 cryptography>=50,<51; python_version >= '3.10'
