@@ -6,11 +6,9 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
-## Current release: 0.3.64
+## Current release: 0.3.65
 
-`argpolicy` validates literal command arguments and environment variables with
-allow/deny rules, bounded regex matching, choices, repetitions and value counts.
-Read the [release notes](docs/release-0.3.64.md) and [API guide](docs/argpolicy.md).
+This release requires HTTPdis 0.7.1 or later. Read the [release notes](docs/release-0.3.65.md) and [API guide](docs/argpolicy.md).
 
 ## What is here?
 
