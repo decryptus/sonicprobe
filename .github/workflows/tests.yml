@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: decryptus/httpdis
-          ref: 22a9ebdd6ac014df68ae40f891e16742cb1c4fa9
+          ref: df6eb5aed21d8cbf0d0bf46b8eefbba5f733f53f
           path: consumers/httpdis
           persist-credentials: false
       - uses: actions/checkout@v4
