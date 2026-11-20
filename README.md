@@ -6,9 +6,9 @@ A collection of Python infrastructure utilities used by
 The name belongs to this ecosystem's **Doctor Who** theme. Independent software;
 not affiliated with the television series.
 
-## Current release: 0.3.65
+## Current release: 0.3.66
 
-This release requires HTTPdis 0.7.1 or later. Read the [release notes](docs/release-0.3.65.md) and [API guide](docs/argpolicy.md).
+Outgoing emails include Date and Message-ID headers. Read the [release notes and mail API](docs/release-0.3.66.md) and [API guide](docs/argpolicy.md).
 
 ## What is here?
 

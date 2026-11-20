@@ -1,6 +1,7 @@
 import logging
 import threading
 import unittest
+from email import message_from_string
 try:
     from unittest import mock
 except ImportError:
@@ -44,6 +45,11 @@ class QueueLoggingTests(unittest.TestCase):
             handler.purge()
             messages = [call[0][2] for call in smtp.return_value.sendmail.call_args_list]
             self.assertEqual(len(messages), 2)
+            parsed = [message_from_string(value) for value in messages]
+            self.assertNotEqual(parsed[0]['Message-ID'], parsed[1]['Message-ID'])
+            for message in parsed:
+                self.assertTrue(message['Message-ID'].endswith('@example.test>'))
+                self.assertTrue(message['Date'].endswith(' GMT'))
             self.assertIn('first', messages[0])
             self.assertNotIn('second', messages[0])
             self.assertIn('second', messages[1])
