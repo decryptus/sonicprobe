@@ -1,3 +1,9 @@
+python-sonicprobe (0.3.66) unstable; urgency=medium
+
+  * Supply missing origin headers on application mail and queued log messages.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Sat, 21 Nov 2026 00:00:00 +0100
+
 python-sonicprobe (0.3.65) unstable; urgency=medium
 
   * Require HTTPdis 0.7.1 or later.

@@ -5,14 +5,13 @@
 
 import smtplib
 
-try:
-    from email.utils import formatdate
-except ImportError:
-    from email.Utils import formatdate
+from email.mime.text import MIMEText
 
 from logging.handlers import SMTPHandler
 
 from six import itervalues
+
+from sonicprobe.libs.mail import ensure_message_headers
 
 
 class QueueSMTPHandler(SMTPHandler):
@@ -68,13 +67,12 @@ class QueueSMTPHandler(SMTPHandler):
                 if not port:
                     port = smtplib.SMTP_PORT
                 smtp = smtplib.SMTP(self.mailhost, port)
-                msg = ("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" %
-                       (self.fromaddr,
-                        ','.join(self.toaddrs),
-                        self.getSubject(record),
-                        formatdate(),
-                        msg))
-                smtp.sendmail(self.fromaddr, self.toaddrs, msg)
+                message = MIMEText(msg)
+                message['From'] = self.fromaddr
+                message['To'] = ','.join(self.toaddrs)
+                message['Subject'] = self.getSubject(record)
+                ensure_message_headers(message)
+                smtp.sendmail(self.fromaddr, self.toaddrs, message.as_string())
             except Exception:
                 self.handleError(record)
             finally:

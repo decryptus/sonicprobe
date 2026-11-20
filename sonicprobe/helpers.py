@@ -16,7 +16,7 @@ import time
 
 from email import encoders
 from email.header import Header
-from email.utils import COMMASPACE, formatdate
+from email.utils import COMMASPACE
 
 from multiprocessing import cpu_count
 
@@ -48,6 +48,8 @@ from six.moves.email_mime_text import MIMEText
 from six.moves.email_mime_multipart import MIMEMultipart
 
 import pycurl
+
+from sonicprobe.libs.mail import ensure_message_headers
 
 
 LOG            = logging.getLogger('sonicprobe.helpers')
@@ -285,7 +287,7 @@ def send_email(xfrom, to, subject, body, cc=None, bcc=None, attachments=None, ho
     else:
         raise ValueError("Invalid e-mail sender. (from: %r)" % xfrom)
 
-    outer['Date']   = formatdate(localtime=True)
+    ensure_message_headers(outer)
     smtp            = smtplib.SMTP(host)
 
     if has_len(to):
