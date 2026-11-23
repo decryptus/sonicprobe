@@ -25,5 +25,5 @@ setuptools==84.0.0
 six==1.17.0
 sonicprobe==0.3.57
 typing-extensions==4.16.0
-unidecode==1.2.0
+unidecode==1.4.0
 urllib3==2.8.0
