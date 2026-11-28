@@ -10,11 +10,46 @@ python-sonicprobe (0.3.65) unstable; urgency=medium
 
  -- Adrien Delle Cave <pypi@doowan.net>  Sat, 07 Nov 2026 09:16:00 +0100
 
+python-sonicprobe (0.3.64) unstable; urgency=medium
+
+  * Add sonicprobe.libs.argpolicy: reusable ArgsPolicy/EnvPolicy validators
+    with bounded regex matching.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 06 Nov 2026 06:40:53 +0100
+
 python-sonicprobe (0.3.63) unstable; urgency=medium
 
   * Stage file_w_tmp beside the target for atomic replacement across mounts.
 
  -- Adrien Delle Cave <pypi@doowan.net>  Thu, 05 Nov 2026 06:00:00 +0000
+
+python-sonicprobe (0.3.62) unstable; urgency=medium
+
+  * Add the optional SQLiteTransactions helper for explicit write transactions
+    and deferred read snapshots on strict AnySQL SQLite connections.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 22 Oct 2026 05:29:47 +0200
+
+python-sonicprobe (0.3.61) unstable; urgency=medium
+
+  * Accept an explicit connect_timeout URI parameter on the PostgreSQL AnySQL
+    adapter and advertise the capability.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 21 Oct 2026 12:55:07 +0200
+
+python-sonicprobe (0.3.60) unstable; urgency=medium
+
+  * Support explicit verified TLS (tls=verify-full, tls_ca, optional client
+    certificate) for PostgreSQL and MySQL/MariaDB AnySQL connections.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 09 Oct 2026 19:26:51 +0200
+
+python-sonicprobe (0.3.59) unstable; urgency=medium
+
+  * Add optional SQLite file modes and MySQL/MariaDB/PostgreSQL read-only and
+    read-write session modes; reject invalid or duplicate modes.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 09 Oct 2026 07:46:55 +0200
 
 python-sonicprobe (0.3.58) unstable; urgency=medium
 
