@@ -11,7 +11,7 @@ markupsafe==3.0.4
 psutil==7.2.2
 pyasyncore==1.0.5
 pycparser==3.12
-pycryptodome==4.5.0
+pycryptodome==3.24.0
 pycurl==7.49.0
 pyinotify==0.9.6
 pyopenssl==26.4.0
